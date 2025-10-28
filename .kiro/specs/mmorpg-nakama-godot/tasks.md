@@ -1,9 +1,9 @@
 # Implementation Tasks: MMORPG-grade Nakama (Godot-first)
 
-**Feature:** MMORPG-grade Nakama with Godot 4 Integration  
-**Requirements:** `.kiro/specs/mmorpg-nakama-godot/requirements.md`  
-**Design:** `.kiro/specs/mmorpg-nakama-godot/design.md`  
-**Status:** In Progress  
+**Feature:** MMORPG-grade Nakama with Godot 4 Integration
+**Requirements:** `.kiro/specs/mmorpg-nakama-godot/requirements.md`
+**Design:** `.kiro/specs/mmorpg-nakama-godot/design.md`
+**Status:** In Progress
 **Last Updated:** October 28, 2025
 
 ---
@@ -24,69 +24,69 @@ Tasks are organized by implementation phase and trace back to specific requireme
 ### 1.1 Database Schema Setup
 _Req: 1-33, Design: Data Models_
 
-- [ ] **1.1.1** Create database migration framework setup
+- [x] **1.1.1** Create database migration framework setup
   - Set up migration versioning in `migrate/sql/`
   - Create migration runner script
   - Add migration tracking table
 
-- [ ] **1.1.2** Create accounts table migration
+- [x] **1.1.2** Create accounts table migration
   - Table: `accounts` with columns: account_id, email, device_id, platform_token, created_at, last_login_at, permissions, banned
   - Indexes: email, device_id
   - _Req: 1_
 
-- [ ] **1.1.3** Create characters table migration
+- [x] **1.1.3** Create characters table migration
   - Table: `characters` with columns: character_id, account_id, name, archetype_id, level, last_zone_id, last_position, stats, created_at, last_login_at, version
   - Unique constraint on name
   - Foreign key to accounts
   - _Req: 2, 3_
 
-- [ ] **1.1.4** Create inventory table migration
+- [x] **1.1.4** Create inventory table migration
   - Table: `inventory` with item_uid, character_id, item_id, slot_id, quantity, durability, metadata, version
   - Unique index on (character_id, slot_id)
   - _Req: 14_
 
-- [ ] **1.1.5** Create world_state table migration
+- [x] **1.1.5** Create world_state table migration
   - Table: `world_state` for zone checkpoints
   - Columns: zone_id, shard_id, state_json, version, updated_at, checkpoint_at
   - _Req: 7_
 
-- [ ] **1.1.6** Create event_log table migration
+- [x] **1.1.6** Create event_log table migration
   - Table: `event_log` for crash recovery
   - Columns: event_id, zone_id, event_type, event_data, timestamp
   - Index on (zone_id, timestamp)
   - _Req: 7_
 
-- [ ] **1.1.7** Create guilds and guild_members tables migration
+- [x] **1.1.7** Create guilds and guild_members tables migration
   - Tables: `guilds`, `guild_members`
   - Support for ranks, MOTD, storage
   - _Req: 11_
 
-- [ ] **1.1.8** Create trade_sessions table migration
+- [x] **1.1.8** Create trade_sessions table migration
   - Table: `trade_sessions` for 2PC trading
   - Columns: trade_id, participant_1, participant_2, items_1, items_2, locked, expires_at
   - _Req: 15_
 
-- [ ] **1.1.9** Create zone_boundaries table migration
+- [x] **1.1.9** Create zone_boundaries table migration
   - Table: `zone_boundaries` with neighbors array
   - Support for handoff triggers
   - _Req: 18_
 
-- [ ] **1.1.10** Create handoff_tokens table migration
+- [x] **1.1.10** Create handoff_tokens table migration
   - Table: `handoff_tokens` for cross-region transfers
   - TTL-based expiration
   - _Req: 18, 19_
 
-- [ ] **1.1.11** Create event_schedules table migration
+- [x] **1.1.11** Create event_schedules table migration
   - Table: `event_schedules` for cron-based events
   - Support for script_id, params, enabled flag
   - _Req: 22_
 
-- [ ] **1.1.12** Create audit_logs table migration
+- [x] **1.1.12** Create audit_logs table migration
   - Table: `audit_logs` for GM actions and transactions
   - Indexed by actor_id and action
   - _Req: 20, 23, 25_
 
-- [ ] **1.1.13** Create catalog and entitlements tables migration
+- [x] **1.1.13** Create catalog and entitlements tables migration
   - Tables: `catalog`, `entitlements`
   - Support for SKU, pricing, regional filtering
   - _Req: 24, 25, 26_
