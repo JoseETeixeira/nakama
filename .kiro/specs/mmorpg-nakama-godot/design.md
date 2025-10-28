@@ -2,11 +2,12 @@
 
 ## Document Information
 
-- **Feature Name:** MMORPG-grade Nakama with Godot 4 Integration
-- **Version:** 1.0
-- **Date:** October 27, 2025
+- **Feature Name:** MMORPG-grade Nakama with Godot 4 Integration (2D/3D Support)
+- **Version:** 1.1
+- **Date:** October 28, 2025
 - **Status:** In Design
 - **Requirements Reference:** `.kiro/specs/mmorpg-nakama-godot/requirements.md`
+- **Change Log:** Added dimension-agnostic support for both 2D and 3D worlds
 
 ---
 
@@ -98,6 +99,50 @@ _Requirements: 1-33_
 4. **Godot-First**: SDK examples, GDScript integration patterns (Req 2, 4, 5)
 5. **No Matchmaking**: Direct instance creation, portal-based entry (Req 9)
 6. **Seamless Handoffs**: Token-based cross-region transfers (Req 18, 19)
+7. **Dimension-Agnostic**: Support both 2D and 3D worlds with unified data structures
+
+---
+
+### 2D/3D World Support
+
+The system is designed to support both 2D and 3D game worlds using dimension-agnostic data structures. This allows game developers to build either 2D top-down/side-scrolling MMORPGs or traditional 3D MMORPGs using the same backend infrastructure.
+
+**Position Representation:**
+- **2D Worlds**: Position stored as `{x, y}` where `z` is omitted or set to `0`
+- **3D Worlds**: Position stored as `{x, y, z}` with full 3D coordinates
+- **Database**: JSONB columns flexibly store either format
+- **Client**: Godot Vector2 (2D) or Vector3 (3D) based on game type
+
+**Terrain/Map Representation:**
+- **2D Worlds**: TileMap chunk IDs referencing tileset data
+- **3D Worlds**: Terrain chunk IDs referencing heightmap/mesh data
+- **Unified Storage**: Both use string array of chunk identifiers
+
+**Spatial Indexing:**
+- **2D Worlds**: Grid-based spatial partitioning (x, y cells)
+- **3D Worlds**: Octree or 3D grid partitioning (x, y, z cells)
+- **AOI Calculation**: Distance formula adapts to dimensionality
+
+**Movement & Physics:**
+- **2D Worlds**: Validate movement in x/y plane, collision against tilemap
+- **3D Worlds**: Validate movement in x/y/z space, collision against terrain/meshes
+- **Server Logic**: Same validation pipeline, dimension detected from position format
+
+**Example Position Formats:**
+```typescript
+// 2D position (top-down RPG)
+{
+  "x": 128.5,
+  "y": 256.0
+}
+
+// 3D position (traditional MMORPG)
+{
+  "x": 128.5,
+  "y": 10.2,
+  "z": 256.0
+}
+```
 
 ---
 

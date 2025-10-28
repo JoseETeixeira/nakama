@@ -27,6 +27,10 @@ var session: NakamaSession = null
 ## WebSocket connection for real-time communication
 var socket: NakamaSocket = null
 
+## Currently selected character ID
+## Task 2.1.5: Store character ID for zone_snapshot RPC
+var current_character_id: String = ""
+
 ## Server configuration (loaded from project settings)
 ## Task 1.4.2 - Configured via Project Settings -> Nakama
 var server_key: String
@@ -183,10 +187,16 @@ func select_character(character_id: String) -> Dictionary:
 ## Parameters:
 ##   character_id: UUID of character entering world
 ##
-## Returns: Zone entry data (zone_id, shard_id, spawn_position)
+## Returns: Zone entry data with:
+##   - shardId: Shard identifier
+##   - zoneId: Zone identifier where player will spawn
+##   - spawn: Position coordinates {x, y} for 2D or {x, y, z} for 3D
+##   - handoff: null for normal entry (or token for cross-region transfers)
+##
 ## Throws: Error if RPC fails
 ##
-## Phase 2, Task: 2.1.2 - Implement world_enter RPC
+## Phase 2, Task: 2.1.2 - world_enter RPC (IMPLEMENTED ✅)
+## Requirements: 2 (Character Selection), 4 (World Entry)
 func enter_world(character_id: String) -> Dictionary:
 	if session == null:
 		push_error("[NakamaManager] Cannot enter world: not authenticated")
@@ -194,11 +204,13 @@ func enter_world(character_id: String) -> Dictionary:
 
 	print("[NakamaManager] Entering world with character: ", character_id)
 
+	# Task 2.1.5: Store current character ID for zone_snapshot RPC
+	current_character_id = character_id
+
 	var payload = JSON.stringify({
 		"character_id": character_id
 	})
 
-	# TODO: Phase 2 - This RPC will be implemented in Task 2.1.2
 	var response = await client.rpc_async(session, "world_enter", payload)
 
 	if response.is_exception():
@@ -206,7 +218,14 @@ func enter_world(character_id: String) -> Dictionary:
 		return {}
 
 	var data = JSON.parse_string(response.payload)
-	print("[NakamaManager] Entered world. Zone: ", data.get("zone_id", "unknown"))
+	var zone_id = data.get("zoneId", "unknown")
+	var shard_id = data.get("shardId", "unknown")
+	var spawn = data.get("spawn", {})
+
+	print("[NakamaManager] Entered world. Shard: %s, Zone: %s, Spawn: (%f, %f, %f)" % [
+		shard_id, zone_id, spawn.get("x", 0), spawn.get("y", 0), spawn.get("z", 0)
+	])
+
 	return data
 
 
@@ -214,22 +233,32 @@ func enter_world(character_id: String) -> Dictionary:
 ##
 ## Parameters:
 ##   zone_id: Zone identifier to join
+##   spawn_position: DEPRECATED - Server now calculates AOI from character position
 ##
-## Phase 2, Task: 2.1.3 - Implement zone snapshot generation
-func join_zone(zone_id: String) -> void:
+## Phase 2, Task: 2.1.3 - zone_snapshot RPC (IMPLEMENTED ✅)
+## Phase 2, Task: 2.1.5 - AOI seed calculation (UPDATED ✅)
+## Requirements: 4 (World Entry and Zone Snapshot), 8 (AOI Management)
+##
+## Task 2.1.5: Updated to pass character_id instead of client-provided aoi_seed.
+## Server now calculates AOI seed from character's position (server-authoritative).
+func join_zone(zone_id: String, spawn_position: Variant = Vector2(0, 0)) -> void:
 	if session == null or socket == null:
 		push_error("[NakamaManager] Cannot join zone: not authenticated or socket disconnected")
 		return
 
-	print("[NakamaManager] Joining zone: ", zone_id)
+	if current_character_id == "":
+		push_error("[NakamaManager] Cannot join zone: no character selected")
+		return
 
-	# Request zone snapshot
+	print("[NakamaManager] Joining zone: %s with character: %s" % [zone_id, current_character_id])
+
+	# Task 2.1.5: Send character_id instead of aoi_seed
+	# Server determines AOI seed from character position (server-authoritative)
 	var snap_payload = JSON.stringify({
 		"zone_id": zone_id,
-		"aoi_seed": [0, 0, 0] # Player's initial position
+		"character_id": current_character_id
 	})
 
-	# TODO: Phase 2 - This RPC will be implemented in Task 2.1.3
 	var snap_response = await client.rpc_async(session, "zone_snapshot", snap_payload)
 
 	if snap_response.is_exception():
@@ -238,24 +267,50 @@ func join_zone(zone_id: String) -> void:
 
 	var snapshot_data = JSON.parse_string(snap_response.payload)
 	var snapshot_blob = snapshot_data.get("snapshot_blob", "")
+	var version = snapshot_data.get("version", 0)
+	var compressed_size = snapshot_data.get("compressed_size", 0)
+	var uncompressed_size = snapshot_data.get("uncompressed_size", 0)
 
-	# Apply snapshot to world state
+	print("[NakamaManager] Received zone snapshot (version %d, %d KB compressed, %d KB uncompressed)" % [
+		version, compressed_size / 1024, uncompressed_size / 1024
+	])
+
+	# Apply snapshot to world state (Task 2.4.1)
 	WorldState.apply_snapshot(snapshot_blob)
 
-	# Subscribe to zone delta stream
-	socket.received_stream_state.connect(_on_zone_delta)
-	var stream_result = await socket.send_match_state_async(zone_id, 0, "")
+	# Subscribe to zone delta stream (Task 2.4.4)
+	# Connect signal handler for delta updates
+	if not socket.received_stream_state.is_connected(_on_zone_delta):
+		socket.received_stream_state.connect(_on_zone_delta)
+
+	# Join the zone stream to receive delta updates
+	var stream_result = await socket.join_stream_async("zone_deltas", zone_id)
 
 	if stream_result.is_exception():
 		push_error("[NakamaManager] Failed to subscribe to zone deltas: ", stream_result.get_exception().message)
 		return
 
-	print("[NakamaManager] Subscribed to zone delta stream")
+	print("[NakamaManager] Subscribed to zone delta stream for zone: %s" % zone_id)
 
 
 ## Handle zone delta updates from server
 ##
-## Phase 2, Task: 2.3.1 - Implement zone delta stream
+## Phase 2, Task: 2.4.4 - Implement delta stream subscription
+## Phase 2, Task: 2.4.5 - Implement delta application
+##
+## Signal handler for Nakama's received_stream_state signal.
+## Receives real-time delta updates from the server and applies them to the world state.
+##
+## Parameters (from Nakama SDK):
+##   stream: NakamaRTAPI.Stream object containing delta data
 func _on_zone_delta(stream: NakamaRTAPI.Stream) -> void:
-	var delta_data = JSON.parse_string(stream.data.get_string_from_utf8())
+	# Parse delta data from stream
+	var delta_json = stream.data.get_string_from_utf8()
+	var delta_data = JSON.parse_string(delta_json)
+
+	if delta_data == null or typeof(delta_data) != TYPE_DICTIONARY:
+		push_warning("[NakamaManager] Invalid delta data received")
+		return
+
+	# Apply delta to world state (Task 2.4.5)
 	WorldState.apply_delta(delta_data)

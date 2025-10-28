@@ -1,10 +1,10 @@
 # MMORPG Nakama Godot Client
 
-Godot 4 client for MMORPG-grade Nakama server integration.
+Godot 4 client for MMORPG-grade Nakama server integration (2D top-down game).
 
 ## Project Structure
 
-This Godot 4 project implements the client-side logic for connecting to the MMORPG Nakama server.
+This Godot 4 project implements the client-side logic for connecting to the MMORPG Nakama server. The client is built as a **2D top-down game** to demonstrate the server's dimension-agnostic capabilities.
 
 ### Autoload Singletons
 
@@ -15,10 +15,10 @@ This Godot 4 project implements the client-side logic for connecting to the MMOR
   - Manages world entry and zone streaming
 
 - **WorldState** (`autoload/WorldState.gd`)
-  - Maintains client-side world state
+  - Maintains client-side world state (2D entities)
   - Handles snapshot decompression and application
   - Processes delta updates from server
-  - Manages entity spawning/despawning
+  - Manages entity spawning/despawning (Node2D instances)
 
 ### Scene Hierarchy
 
@@ -27,7 +27,7 @@ This Godot 4 project implements the client-side logic for connecting to the MMOR
   - `CharacterSelect.tscn` - Character selection and creation UI
 
 - **scenes/world/**
-  - `Zone.tscn` - Main game world scene
+  - `Zone.tscn` - Main game world scene (2D top-down view with Camera2D)
   - (Additional scenes for Player, NPCs, etc. will be added in later tasks)
 
 ## Development Tasks

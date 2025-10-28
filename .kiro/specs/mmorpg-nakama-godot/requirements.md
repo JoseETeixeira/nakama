@@ -114,6 +114,9 @@ A complete MMORPG backend built on Nakama, featuring persistent open worlds, ser
 
 **Acceptance Criteria (EARS)**
 - WHEN a player enters a zone THEN Nakama SHALL send a compressed zone snapshot containing: zone time, terrain chunk references, entity list (id, type, transform, vitals), AOI seed, and active effects
+  - For 2D worlds: Transform contains position {x, y} or {x, y, z: 0} and rotation {z}
+  - For 3D worlds: Transform contains position {x, y, z} and rotation {x, y, z}
+  - Terrain references: TileMap chunk IDs (2D) or Terrain/Mesh chunk IDs (3D)
 - IF the snapshot size exceeds 512 KB compressed THEN Nakama SHALL chunk the data or apply LOD (level of detail) filtering
 - WHEN the client receives the snapshot THEN the client SHALL apply it atomically (single frame) and subscribe to delta updates
 - IF the client fails to apply the snapshot within 50 ms THEN the client SHALL report a performance warning
@@ -123,7 +126,7 @@ A complete MMORPG backend built on Nakama, featuring persistent open worlds, ser
 - **Priority:** High
 - **Complexity:** High
 - **Dependencies:** Requirement 2/3 (character entry), zone state storage, compression library
-- **Assumptions:** Snapshots use Deflate compression; terrain chunks are referenced by ID (not sent inline); target hardware is mid-range PC/console
+- **Assumptions:** Snapshots use Deflate compression; terrain chunks are referenced by ID (not sent inline); target hardware is mid-range PC/console; system supports both 2D and 3D game worlds
 
 ---
 
@@ -133,6 +136,8 @@ A complete MMORPG backend built on Nakama, featuring persistent open worlds, ser
 
 **Acceptance Criteria (EARS)**
 - WHEN a player sends a movement intent (direction, timestamp, nonce) THEN Nakama SHALL validate the input, calculate the authoritative position, and broadcast the result at 10-20 Hz
+  - For 2D worlds: Validate position {x, y} within terrain bounds using 2D collision
+  - For 3D worlds: Validate position {x, y, z} within terrain bounds using 3D collision
 - IF a movement intent violates physics constraints (speed, collision) THEN Nakama SHALL reject or correct the input and send a correction to the client
 - WHEN the client receives a position correction THEN the client SHALL reconcile its predicted state with the server truth
 - IF the reconciliation delta exceeds 2 frames (p95) THEN the client SHALL report a lag warning
@@ -190,6 +195,8 @@ A complete MMORPG backend built on Nakama, featuring persistent open worlds, ser
 
 **Acceptance Criteria (EARS)**
 - WHEN a player enters a zone THEN Nakama SHALL calculate the player's Area of Interest (AOI) based on position and visibility radius
+  - For 2D worlds: AOI is calculated as a circle around position {x, y} with configured radius (e.g., 50 units)
+  - For 3D worlds: AOI is calculated as a sphere around position {x, y, z} with configured radius (e.g., 50 units)
 - WHILE a player is in a zone THEN Nakama SHALL send delta updates only for entities within the player's AOI
 - WHEN an entity enters the player's AOI THEN Nakama SHALL send an entity-add message with initial state
 - WHEN an entity exits the player's AOI THEN Nakama SHALL send an entity-remove message

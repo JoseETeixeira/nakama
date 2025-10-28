@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://d8k9z4y2n0q3r"]
+[gd_scene load_steps=3 format=3 uid="uid://d8k9z4y2n0q3r"]
 
 [ext_resource type="Script" path="res://scenes/auth/CharacterSelect.gd" id="1_charselect"]
+[ext_resource type="PackedScene" uid="uid://b5m7n8p9q0r1s" path="res://scenes/auth/CharacterCreateDialog.tscn" id="2_dialog"]
 
 [node name="CharacterSelect" type="Control"]
 layout_mode = 3
@@ -69,3 +70,5 @@ horizontal_alignment = 1
 [connection signal="item_selected" from="VBoxContainer/CharacterList" to="." method="_on_character_list_item_selected"]
 [connection signal="pressed" from="VBoxContainer/ButtonContainer/CreateButton" to="." method="_on_create_button_pressed"]
 [connection signal="pressed" from="VBoxContainer/ButtonContainer/SelectButton" to="." method="_on_select_button_pressed"]
+
+[node name="CharacterCreateDialog" parent="." instance=ExtResource("2_dialog")]

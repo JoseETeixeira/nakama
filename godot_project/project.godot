@@ -9,9 +9,9 @@ config_version=5
 [application]
 
 config/name="MMORPG Nakama Client"
-config/description="Godot 4 client for MMORPG-grade Nakama server integration"
+config/description="Godot 4 client for MMORPG-grade Nakama server integration (2D top-down)"
 run/main_scene="res://scenes/auth/LoginScreen.tscn"
-config/features=PackedStringArray("4.3", "Forward Plus")
+config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -36,5 +36,6 @@ server/key="defaultkey"
 
 [rendering]
 
-renderer/rendering_method="forward_plus"
-textures/canvas_textures/default_texture_filter=2
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0

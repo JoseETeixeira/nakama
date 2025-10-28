@@ -1,6 +1,6 @@
 ## Zone
 ##
-## Main world scene for rendering the game zone.
+## Main world scene for rendering the game zone (2D top-down).
 ##
 ## Phase 2, Task: 2.1.2 - Implement world_enter RPC
 ## Phase 2, Task: 2.1.3 - Implement zone snapshot generation
@@ -8,9 +8,9 @@
 ##
 ## This scene handles:
 ## - Zone entry and snapshot loading
-## - Entity rendering based on WorldState
-## - Camera control and player movement
-extends Node3D
+## - Entity rendering based on WorldState (2D sprites)
+## - Camera control and player movement (2D top-down)
+extends Node2D
 
 @onready var status_label: Label = $UILayer/Control/StatusLabel
 

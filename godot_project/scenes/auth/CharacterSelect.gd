@@ -16,6 +16,7 @@ extends Control
 @onready var create_button: Button = $VBoxContainer/ButtonContainer/CreateButton
 @onready var select_button: Button = $VBoxContainer/ButtonContainer/SelectButton
 @onready var status_label: Label = $VBoxContainer/StatusLabel
+@onready var create_dialog: Window = $CharacterCreateDialog
 
 ## Array of character data dictionaries
 var characters: Array = []
@@ -25,6 +26,9 @@ var selected_index: int = -1
 
 
 func _ready() -> void:
+	# Connect create dialog signal
+	create_dialog.character_created.connect(_on_character_created)
+
 	# Load character list on scene load
 	load_characters()
 
@@ -62,26 +66,19 @@ func _on_character_list_item_selected(index: int) -> void:
 ##
 ## Task: 1.4.5 - Implement character creation flow
 func _on_create_button_pressed() -> void:
-	# TODO: Task 1.4.5 - Show character creation dialog
-	# For now, create a test character with random name
-	var test_name = "Hero%d" % randi_range(1000, 9999)
-	var test_archetype = "warrior"
+	# Show character creation dialog
+	create_dialog.show_dialog()
 
-	status_label.text = "Creating character..."
-	create_button.disabled = true
 
-	var character_id = await NakamaManager.create_character(test_name, test_archetype)
+## Handle character created signal from dialog
+##
+## Task: 1.4.5 - Reload character list after creation
+func _on_character_created() -> void:
+	status_label.text = "Character created successfully!"
 
-	if character_id.is_empty():
-		status_label.text = "Character creation failed"
-		create_button.disabled = false
-	else:
-		status_label.text = "Character created successfully!"
-		create_button.disabled = false
-
-		# Reload character list
-		await get_tree().create_timer(0.5).timeout
-		load_characters()
+	# Reload character list to show new character
+	await get_tree().create_timer(0.5).timeout
+	load_characters()
 
 
 ## Handle select character button press
