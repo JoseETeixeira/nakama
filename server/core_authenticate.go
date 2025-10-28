@@ -281,6 +281,457 @@ WHERE NOT EXISTS
 	return userID, username, true, nil
 }
 
+// AuthenticateDeviceMMORPG authenticates a player using device_id and manages MMORPG accounts table.
+// Supports auto-registration when create=true. Returns account_id, username, permissions, created flag, and error.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - device ID authentication
+// Task: 1.2.2 - Implement device authentication
+func AuthenticateDeviceMMORPG(ctx context.Context, logger *zap.Logger, db *sql.DB, deviceID, username string, create bool) (string, string, []string, bool, error) {
+	found := true
+
+	// Look for an existing account by device_id
+	query := "SELECT account_id, permissions FROM accounts WHERE device_id = $1 AND banned = FALSE"
+	var accountID string
+	var permissions []string
+	err := db.QueryRowContext(ctx, query, deviceID).Scan(&accountID, &permissions)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			found = false
+		} else {
+			logger.Error("Error looking up account by device ID.", zap.Error(err), zap.String("deviceID", deviceID), zap.String("username", username), zap.Bool("create", create))
+			return "", "", nil, false, status.Error(codes.Internal, "Error finding account.")
+		}
+	}
+
+	// Check if account is banned (shouldn't happen due to WHERE clause, but defensive check)
+	if found {
+		var banned bool
+		queryBan := "SELECT banned FROM accounts WHERE account_id = $1"
+		if err := db.QueryRowContext(ctx, queryBan, accountID).Scan(&banned); err == nil && banned {
+			logger.Info("Account is banned.", zap.String("accountID", accountID), zap.String("deviceID", deviceID))
+			return "", "", nil, false, status.Error(codes.PermissionDenied, "Account banned.")
+		}
+
+		// Update last_login_at
+		updateQuery := "UPDATE accounts SET last_login_at = NOW() WHERE account_id = $1"
+		if _, err := db.ExecContext(ctx, updateQuery, accountID); err != nil {
+			logger.Warn("Failed to update last_login_at.", zap.Error(err), zap.String("accountID", accountID))
+		}
+
+		// Return existing account with permissions
+		return accountID, username, permissions, false, nil
+	}
+
+	if !create {
+		// No account found, and creation is not allowed
+		return "", "", nil, false, status.Error(codes.NotFound, "Account not found.")
+	}
+
+	// Create a new MMORPG account with default permissions
+	accountID = uuid.Must(uuid.NewV4()).String()
+	defaultPermissions := []string{"player"} // Default RBAC permission
+
+	if username == "" {
+		username = generateUsername()
+	}
+
+	query = `
+INSERT INTO accounts (account_id, device_id, permissions, created_at, last_login_at, banned)
+VALUES ($1, $2, $3, NOW(), NOW(), FALSE)`
+
+	result, err := db.ExecContext(ctx, query, accountID, deviceID, defaultPermissions)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == dbErrorUniqueViolation {
+			// Concurrent insert - another request created this device_id
+			logger.Info("Did not insert new account as device_id already exists.", zap.Error(err), zap.String("deviceID", deviceID))
+			return "", "", nil, false, status.Error(codes.Internal, "Error finding or creating account.")
+		}
+		logger.Error("Cannot create account with device ID.", zap.Error(err), zap.String("deviceID", deviceID), zap.String("username", username))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	if rowsAffectedCount, _ := result.RowsAffected(); rowsAffectedCount != 1 {
+		logger.Error("Did not insert new account.", zap.Int64("rows_affected", rowsAffectedCount))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	logger.Info("Created new MMORPG account.", zap.String("accountID", accountID), zap.String("deviceID", deviceID), zap.Strings("permissions", defaultPermissions))
+	return accountID, username, defaultPermissions, true, nil
+}
+
+// AuthenticateEmailMMORPG authenticates a player using email + password and manages MMORPG accounts table.
+// Supports auto-registration when create=true. Passwords are hashed with bcrypt.
+// Returns account_id, username, permissions, created flag, and error.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - email authentication with bcrypt
+// Task: 1.2.3 - Implement email authentication
+func AuthenticateEmailMMORPG(ctx context.Context, logger *zap.Logger, db *sql.DB, email, password, username string, create bool) (string, string, []string, bool, error) {
+	found := true
+
+	// Look for an existing account by email
+	query := "SELECT account_id, password_hash, permissions FROM accounts WHERE email = $1 AND banned = FALSE"
+	var accountID string
+	var passwordHash []byte
+	var permissions []string
+	err := db.QueryRowContext(ctx, query, email).Scan(&accountID, &passwordHash, &permissions)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			found = false
+		} else {
+			logger.Error("Error looking up account by email.", zap.Error(err), zap.String("email", email), zap.String("username", username), zap.Bool("create", create))
+			return "", "", nil, false, status.Error(codes.Internal, "Error finding account.")
+		}
+	}
+
+	// Existing account found
+	if found {
+		// Check if account is banned (defensive check)
+		var banned bool
+		queryBan := "SELECT banned FROM accounts WHERE account_id = $1"
+		if err := db.QueryRowContext(ctx, queryBan, accountID).Scan(&banned); err == nil && banned {
+			logger.Info("Account is banned.", zap.String("accountID", accountID), zap.String("email", email))
+			return "", "", nil, false, status.Error(codes.PermissionDenied, "Account banned.")
+		}
+
+		// Verify password
+		if err := bcrypt.CompareHashAndPassword(passwordHash, []byte(password)); err != nil {
+			logger.Info("Invalid password attempt.", zap.String("email", email))
+			return "", "", nil, false, status.Error(codes.Unauthenticated, "Invalid credentials.")
+		}
+
+		// Update last_login_at
+		updateQuery := "UPDATE accounts SET last_login_at = NOW() WHERE account_id = $1"
+		if _, err := db.ExecContext(ctx, updateQuery, accountID); err != nil {
+			logger.Warn("Failed to update last_login_at.", zap.Error(err), zap.String("accountID", accountID))
+		}
+
+		// Return existing account with permissions
+		return accountID, username, permissions, false, nil
+	}
+
+	if !create {
+		// No account found, and creation is not allowed
+		return "", "", nil, false, status.Error(codes.NotFound, "Account not found.")
+	}
+
+	// Create a new MMORPG account with email + password
+	accountID = uuid.Must(uuid.NewV4()).String()
+	defaultPermissions := []string{"player"} // Default RBAC permission
+
+	if username == "" {
+		username = generateUsername()
+	}
+
+	// Hash password with bcrypt
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		logger.Error("Error hashing password.", zap.Error(err), zap.String("email", email))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	query = `
+INSERT INTO accounts (account_id, email, password_hash, permissions, created_at, last_login_at, banned)
+VALUES ($1, $2, $3, $4, NOW(), NOW(), FALSE)`
+
+	result, err := db.ExecContext(ctx, query, accountID, email, hashedPassword, defaultPermissions)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == dbErrorUniqueViolation {
+			if strings.Contains(pgErr.Message, "accounts_email_key") {
+				// Concurrent insert - another request created this email
+				logger.Info("Did not insert new account as email already exists.", zap.Error(err), zap.String("email", email))
+				return "", "", nil, false, status.Error(codes.AlreadyExists, "Email already in use.")
+			}
+		}
+		logger.Error("Cannot create account with email.", zap.Error(err), zap.String("email", email), zap.String("username", username))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	if rowsAffectedCount, _ := result.RowsAffected(); rowsAffectedCount != 1 {
+		logger.Error("Did not insert new account.", zap.Int64("rows_affected", rowsAffectedCount))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	logger.Info("Created new MMORPG account with email.", zap.String("accountID", accountID), zap.String("email", email), zap.Strings("permissions", defaultPermissions))
+	return accountID, username, defaultPermissions, true, nil
+}
+
+// AuthenticateAppleMMORPG authenticates a player using Apple Sign In and manages MMORPG accounts table.
+// Validates Apple ID token with Apple's servers. Supports auto-registration when create=true.
+// Returns account_id, username, permissions, created flag, and error.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - platform token authentication
+// Task: 1.2.4 - Implement platform token authentication
+func AuthenticateAppleMMORPG(ctx context.Context, logger *zap.Logger, db *sql.DB, client *social.Client, bundleId, token, username string, create bool) (string, string, []string, bool, error) {
+	// Validate Apple ID token with Apple's servers
+	profile, err := client.CheckAppleToken(ctx, bundleId, token)
+	if err != nil {
+		logger.Info("Could not authenticate Apple profile.", zap.Error(err))
+		return "", "", nil, false, status.Error(codes.Unauthenticated, "Could not authenticate Apple profile.")
+	}
+
+	found := true
+
+	// Look for an existing account by apple_id
+	query := "SELECT account_id, permissions FROM accounts WHERE apple_id = $1 AND banned = FALSE"
+	var accountID string
+	var permissions []string
+	err = db.QueryRowContext(ctx, query, profile.ID).Scan(&accountID, &permissions)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			found = false
+		} else {
+			logger.Error("Error looking up account by Apple ID.", zap.Error(err), zap.String("appleID", profile.ID), zap.String("username", username), zap.Bool("create", create))
+			return "", "", nil, false, status.Error(codes.Internal, "Error finding account.")
+		}
+	}
+
+	// Existing account found
+	if found {
+		// Check if account is banned (defensive check)
+		var banned bool
+		queryBan := "SELECT banned FROM accounts WHERE account_id = $1"
+		if err := db.QueryRowContext(ctx, queryBan, accountID).Scan(&banned); err == nil && banned {
+			logger.Info("Account is banned.", zap.String("accountID", accountID), zap.String("appleID", profile.ID))
+			return "", "", nil, false, status.Error(codes.PermissionDenied, "Account banned.")
+		}
+
+		// Update last_login_at
+		updateQuery := "UPDATE accounts SET last_login_at = NOW() WHERE account_id = $1"
+		if _, err := db.ExecContext(ctx, updateQuery, accountID); err != nil {
+			logger.Warn("Failed to update last_login_at.", zap.Error(err), zap.String("accountID", accountID))
+		}
+
+		// Return existing account with permissions
+		return accountID, username, permissions, false, nil
+	}
+
+	if !create {
+		// No account found, and creation is not allowed
+		return "", "", nil, false, status.Error(codes.NotFound, "Account not found.")
+	}
+
+	// Create a new MMORPG account with Apple ID
+	accountID = uuid.Must(uuid.NewV4()).String()
+	defaultPermissions := []string{"player"} // Default RBAC permission
+
+	if username == "" {
+		username = generateUsername()
+	}
+
+	// Import email from Apple profile if available
+	var emailToImport *string
+	if profile.Email != "" {
+		emailToImport = &profile.Email
+	}
+
+	query = `
+INSERT INTO accounts (account_id, apple_id, email, permissions, created_at, last_login_at, banned)
+VALUES ($1, $2, $3, $4, NOW(), NOW(), FALSE)`
+
+	result, err := db.ExecContext(ctx, query, accountID, profile.ID, emailToImport, defaultPermissions)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == dbErrorUniqueViolation {
+			// Concurrent insert - another request created this apple_id
+			logger.Info("Did not insert new account as Apple ID already exists.", zap.Error(err), zap.String("appleID", profile.ID))
+			return "", "", nil, false, status.Error(codes.Internal, "Error finding or creating account.")
+		}
+		logger.Error("Cannot create account with Apple ID.", zap.Error(err), zap.String("appleID", profile.ID), zap.String("username", username))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	if rowsAffectedCount, _ := result.RowsAffected(); rowsAffectedCount != 1 {
+		logger.Error("Did not insert new account.", zap.Int64("rows_affected", rowsAffectedCount))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	logger.Info("Created new MMORPG account with Apple ID.", zap.String("accountID", accountID), zap.String("appleID", profile.ID), zap.Strings("permissions", defaultPermissions))
+	return accountID, username, defaultPermissions, true, nil
+}
+
+// AuthenticateGoogleMMORPG authenticates a player using Google Play Games and manages MMORPG accounts table.
+// Validates Google ID token with Google's servers. Supports auto-registration when create=true.
+// Returns account_id, username, permissions, created flag, and error.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - platform token authentication
+// Task: 1.2.4 - Implement platform token authentication
+func AuthenticateGoogleMMORPG(ctx context.Context, logger *zap.Logger, db *sql.DB, client *social.Client, idToken, username string, create bool) (string, string, []string, bool, error) {
+	// Validate Google ID token with Google's servers
+	profile, err := client.CheckGoogleToken(ctx, idToken)
+	if err != nil {
+		logger.Info("Could not authenticate Google profile.", zap.Error(err))
+		return "", "", nil, false, status.Error(codes.Unauthenticated, "Could not authenticate Google profile.")
+	}
+
+	found := true
+
+	// Look for an existing account by google_id
+	query := "SELECT account_id, permissions FROM accounts WHERE google_id = $1 AND banned = FALSE"
+	var accountID string
+	var permissions []string
+	err = db.QueryRowContext(ctx, query, profile.ID).Scan(&accountID, &permissions)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			found = false
+		} else {
+			logger.Error("Error looking up account by Google ID.", zap.Error(err), zap.String("googleID", profile.ID), zap.String("username", username), zap.Bool("create", create))
+			return "", "", nil, false, status.Error(codes.Internal, "Error finding account.")
+		}
+	}
+
+	// Existing account found
+	if found {
+		// Check if account is banned (defensive check)
+		var banned bool
+		queryBan := "SELECT banned FROM accounts WHERE account_id = $1"
+		if err := db.QueryRowContext(ctx, queryBan, accountID).Scan(&banned); err == nil && banned {
+			logger.Info("Account is banned.", zap.String("accountID", accountID), zap.String("googleID", profile.ID))
+			return "", "", nil, false, status.Error(codes.PermissionDenied, "Account banned.")
+		}
+
+		// Update last_login_at
+		updateQuery := "UPDATE accounts SET last_login_at = NOW() WHERE account_id = $1"
+		if _, err := db.ExecContext(ctx, updateQuery, accountID); err != nil {
+			logger.Warn("Failed to update last_login_at.", zap.Error(err), zap.String("accountID", accountID))
+		}
+
+		// Return existing account with permissions
+		return accountID, username, permissions, false, nil
+	}
+
+	if !create {
+		// No account found, and creation is not allowed
+		return "", "", nil, false, status.Error(codes.NotFound, "Account not found.")
+	}
+
+	// Create a new MMORPG account with Google ID
+	accountID = uuid.Must(uuid.NewV4()).String()
+	defaultPermissions := []string{"player"} // Default RBAC permission
+
+	if username == "" {
+		username = generateUsername()
+	}
+
+	query = `
+INSERT INTO accounts (account_id, google_id, permissions, created_at, last_login_at, banned)
+VALUES ($1, $2, $3, NOW(), NOW(), FALSE)`
+
+	result, err := db.ExecContext(ctx, query, accountID, profile.ID, defaultPermissions)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == dbErrorUniqueViolation {
+			// Concurrent insert - another request created this google_id
+			logger.Info("Did not insert new account as Google ID already exists.", zap.Error(err), zap.String("googleID", profile.ID))
+			return "", "", nil, false, status.Error(codes.Internal, "Error finding or creating account.")
+		}
+		logger.Error("Cannot create account with Google ID.", zap.Error(err), zap.String("googleID", profile.ID), zap.String("username", username))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	if rowsAffectedCount, _ := result.RowsAffected(); rowsAffectedCount != 1 {
+		logger.Error("Did not insert new account.", zap.Int64("rows_affected", rowsAffectedCount))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	logger.Info("Created new MMORPG account with Google ID.", zap.String("accountID", accountID), zap.String("googleID", profile.ID), zap.Strings("permissions", defaultPermissions))
+	return accountID, username, defaultPermissions, true, nil
+}
+
+// AuthenticateSteamMMORPG authenticates a player using Steam and manages MMORPG accounts table.
+// Validates Steam session ticket with Steam's servers. Supports auto-registration when create=true.
+// Returns account_id, username, permissions, created flag, and error.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - platform token authentication
+// Task: 1.2.4 - Implement platform token authentication
+func AuthenticateSteamMMORPG(ctx context.Context, logger *zap.Logger, db *sql.DB, client *social.Client, appID int, publisherKey, token, username string, create bool) (string, string, []string, bool, error) {
+	// Validate Steam session ticket with Steam's servers
+	steamID, err := client.CheckSteamToken(ctx, appID, publisherKey, token)
+	if err != nil {
+		logger.Info("Could not authenticate Steam profile.", zap.Error(err))
+		return "", "", nil, false, status.Error(codes.Unauthenticated, "Could not authenticate Steam profile.")
+	}
+
+	found := true
+
+	// Look for an existing account by steam_id
+	query := "SELECT account_id, permissions FROM accounts WHERE steam_id = $1 AND banned = FALSE"
+	var accountID string
+	var permissions []string
+	err = db.QueryRowContext(ctx, query, steamID).Scan(&accountID, &permissions)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			found = false
+		} else {
+			logger.Error("Error looking up account by Steam ID.", zap.Error(err), zap.String("steamID", steamID), zap.String("username", username), zap.Bool("create", create))
+			return "", "", nil, false, status.Error(codes.Internal, "Error finding account.")
+		}
+	}
+
+	// Existing account found
+	if found {
+		// Check if account is banned (defensive check)
+		var banned bool
+		queryBan := "SELECT banned FROM accounts WHERE account_id = $1"
+		if err := db.QueryRowContext(ctx, queryBan, accountID).Scan(&banned); err == nil && banned {
+			logger.Info("Account is banned.", zap.String("accountID", accountID), zap.String("steamID", steamID))
+			return "", "", nil, false, status.Error(codes.PermissionDenied, "Account banned.")
+		}
+
+		// Update last_login_at
+		updateQuery := "UPDATE accounts SET last_login_at = NOW() WHERE account_id = $1"
+		if _, err := db.ExecContext(ctx, updateQuery, accountID); err != nil {
+			logger.Warn("Failed to update last_login_at.", zap.Error(err), zap.String("accountID", accountID))
+		}
+
+		// Return existing account with permissions
+		return accountID, username, permissions, false, nil
+	}
+
+	if !create {
+		// No account found, and creation is not allowed
+		return "", "", nil, false, status.Error(codes.NotFound, "Account not found.")
+	}
+
+	// Create a new MMORPG account with Steam ID
+	accountID = uuid.Must(uuid.NewV4()).String()
+	defaultPermissions := []string{"player"} // Default RBAC permission
+
+	if username == "" {
+		username = generateUsername()
+	}
+
+	query = `
+INSERT INTO accounts (account_id, steam_id, permissions, created_at, last_login_at, banned)
+VALUES ($1, $2, $3, NOW(), NOW(), FALSE)`
+
+	result, err := db.ExecContext(ctx, query, accountID, steamID, defaultPermissions)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == dbErrorUniqueViolation {
+			// Concurrent insert - another request created this steam_id
+			logger.Info("Did not insert new account as Steam ID already exists.", zap.Error(err), zap.String("steamID", steamID))
+			return "", "", nil, false, status.Error(codes.Internal, "Error finding or creating account.")
+		}
+		logger.Error("Cannot create account with Steam ID.", zap.Error(err), zap.String("steamID", steamID), zap.String("username", username))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	if rowsAffectedCount, _ := result.RowsAffected(); rowsAffectedCount != 1 {
+		logger.Error("Did not insert new account.", zap.Int64("rows_affected", rowsAffectedCount))
+		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
+	}
+
+	logger.Info("Created new MMORPG account with Steam ID.", zap.String("accountID", accountID), zap.String("steamID", steamID), zap.Strings("permissions", defaultPermissions))
+	return accountID, username, defaultPermissions, true, nil
+}
+
 func AuthenticateEmail(ctx context.Context, logger *zap.Logger, db *sql.DB, email, password, username string, create bool) (string, string, bool, error) {
 	found := true
 

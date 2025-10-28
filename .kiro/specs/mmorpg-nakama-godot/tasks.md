@@ -91,7 +91,7 @@ _Req: 1-33, Design: Data Models_
   - Support for SKU, pricing, regional filtering
   - _Req: 24, 25, 26_
 
-- [ ] **1.1.14** Create wallets and wallet_transactions tables migration
+- [x] **1.1.14** Create wallets and wallet_transactions tables migration
   - Tables: `wallets`, `wallet_transactions`
   - Optimistic locking with version column
   - _Req: 27_
@@ -99,64 +99,64 @@ _Req: 1-33, Design: Data Models_
 ### 1.2 Authentication Service
 _Req: 1, Design: Authentication Service_
 
-- [ ] **1.2.1** Implement JWT token generation
+- [x] **1.2.1** Implement JWT token generation
   - Create `server/auth_jwt.go` with token issuance
   - Include account_id, permissions, expiration
   - Use TLS 1.2+ for transport
 
-- [ ] **1.2.2** Implement device authentication
+- [x] **1.2.2** Implement device authentication
   - Support device_id-based auth
   - Create account on first login (auto-registration)
 
-- [ ] **1.2.3** Implement email authentication
+- [x] **1.2.3** Implement email authentication
   - Email + password validation
   - Password hashing (bcrypt)
 
-- [ ] **1.2.4** Implement platform token authentication
+- [x] **1.2.4** Implement platform token authentication
   - Support Apple, Google, Steam tokens
   - Validate with platform APIs
 
-- [ ] **1.2.5** Implement session token validation
+- [x] **1.2.5** Implement session token validation
   - Middleware for JWT verification
   - Extract account context from token
 
-- [ ] **1.2.6** Implement rate limiting for authentication
+- [x] **1.2.6** Implement rate limiting for authentication
   - Per-IP rate limits (e.g., 10 auth attempts per minute)
   - Redis-backed rate limiter
 
-- [ ] **1.2.7** Add optional 2FA support
+- [x] **1.2.7** Add optional 2FA support
   - TOTP-based two-factor authentication
   - Enable/disable per account
 
 ### 1.3 Character Service
 _Req: 2, 3, Design: Character Service_
 
-- [ ] **1.3.1** Create TypeScript module structure
+- [x] **1.3.1** Create TypeScript module structure
   - Set up `data/modules/character/` directory
   - Create module registration in runtime
 
-- [ ] **1.3.2** Implement list_characters RPC
+- [x] **1.3.2** Implement list_characters RPC
   - Query characters by account_id
   - Return array of Character objects
   - _Req: 2_
 
-- [ ] **1.3.3** Implement create_character RPC
+- [x] **1.3.3** Implement create_character RPC
   - Validate name (length, profanity filter)
   - Check character slot limit per account
   - Assign default spawn zone and starter items
   - _Req: 3_
 
-- [ ] **1.3.4** Implement select_character RPC
+- [x] **1.3.4** Implement select_character RPC
   - Load full character state (stats, inventory, cooldowns)
   - Return last_zone_id and spawn position
   - _Req: 2_
 
-- [ ] **1.3.5** Implement delete_character RPC
+- [x] **1.3.5** Implement delete_character RPC
   - Cascade delete inventory, guild memberships
   - Audit log the deletion
   - _Req: 29 (GDPR)_
 
-- [ ] **1.3.6** Add character name validation
+- [x] **1.3.6** Add character name validation
   - Profanity filter integration
   - Length constraints (3-20 chars)
   - Alphanumeric + spaces only

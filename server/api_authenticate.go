@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -285,6 +286,110 @@ func (s *ApiServer) AuthenticateDevice(ctx context.Context, in *api.Authenticate
 	return session, nil
 }
 
+// AuthenticateDeviceMMORPG handles MMORPG-specific device authentication with permissions.
+// Returns SessionToken containing account_id, username, and permissions array.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - device ID authentication with auto-registration
+// Task: 1.2.2 - Implement device authentication
+func (s *ApiServer) AuthenticateDeviceMMORPG(ctx context.Context, in *api.AuthenticateDeviceRequest) (*api.Session, error) {
+	// Extract client IP for rate limiting
+	ip, _ := extractClientAddressFromContext(s.logger, ctx)
+
+	// Check rate limiting - use device ID as identifier
+	deviceID := ""
+	if in.Account != nil {
+		deviceID = in.Account.Id
+	}
+	if !s.loginAttemptCache.Allow(deviceID, ip) {
+		return nil, status.Error(codes.ResourceExhausted, "Try again later.")
+	}
+
+	// Before hook (reuse standard device auth before hook)
+	if fn := s.runtime.BeforeAuthenticateDevice(); fn != nil {
+		beforeFn := func(clientIP, clientPort string) error {
+			result, err, code := fn(ctx, s.logger, "", "", nil, 0, clientIP, clientPort, in)
+			if err != nil {
+				return status.Error(code, err.Error())
+			}
+			if result == nil {
+				s.logger.Warn("Intercepted a disabled resource.", zap.Any("resource", ctx.Value(ctxFullMethodKey{}).(string)))
+				return status.Error(codes.NotFound, "Requested resource was not found.")
+			}
+			in = result
+			return nil
+		}
+
+		err := traceApiBefore(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), beforeFn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate device ID
+	if in.Account == nil || in.Account.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "Device ID is required.")
+	} else if invalidCharsRegex.MatchString(in.Account.Id) {
+		return nil, status.Error(codes.InvalidArgument, "Device ID invalid, no spaces or control characters allowed.")
+	} else if len(in.Account.Id) < 10 || len(in.Account.Id) > 128 {
+		return nil, status.Error(codes.InvalidArgument, "Device ID invalid, must be 10-128 bytes.")
+	}
+
+	username := in.Username
+	if username == "" {
+		username = generateUsername()
+	} else if invalidUsernameRegex.MatchString(username) {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, no spaces or control characters allowed.")
+	} else if len(username) > 128 {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, must be 1-128 bytes.")
+	}
+
+	create := in.Create == nil || in.Create.Value
+
+	// Authenticate using MMORPG accounts table
+	accountID, dbUsername, permissions, created, err := AuthenticateDeviceMMORPG(ctx, s.logger, s.db, in.Account.Id, username, create)
+	if err != nil {
+		// Add failed attempt on authentication error
+		if lockout, until := s.loginAttemptCache.Add(deviceID, ip); lockout != LockoutTypeNone {
+			s.logger.Warn("MMORPG device authentication lockout triggered", zap.String("device_id", deviceID), zap.String("ip", ip), zap.Time("locked_until", until))
+		}
+		return nil, err
+	}
+
+	// Reset attempts on successful authentication
+	s.loginAttemptCache.Reset(deviceID)
+
+	// Generate MMORPG JWT token with permissions
+	tokenExpirySec := s.config.GetSession().TokenExpirySec
+	token, tokenID, expiresAt := GenerateMMORPGToken(
+		s.config.GetSession().EncryptionKey,
+		accountID,
+		dbUsername,
+		permissions,
+		tokenExpirySec,
+	)
+
+	// Note: MMORPG tokens don't use refresh tokens in this implementation
+	// SessionCache is not used for MMORPG tokens - stateless JWT validation only
+	session := &api.Session{
+		Created: created,
+		Token:   token,
+	}
+
+	// After hook (reuse standard device auth after hook)
+	if fn := s.runtime.AfterAuthenticateDevice(); fn != nil {
+		afterFn := func(clientIP, clientPort string) error {
+			uid := uuid.Must(uuid.FromString(accountID))
+			ctx = populateCtx(ctx, uid, dbUsername, tokenID, in.Account.Vars, expiresAt, time.Now().Unix())
+			return fn(ctx, s.logger, accountID, dbUsername, in.Account.Vars, expiresAt, clientIP, clientPort, session, in)
+		}
+
+		traceApiAfter(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), afterFn)
+	}
+
+	return session, nil
+}
+
 func (s *ApiServer) AuthenticateEmail(ctx context.Context, in *api.AuthenticateEmailRequest) (*api.Session, error) {
 	// Before hook.
 	if fn := s.runtime.BeforeAuthenticateEmail(); fn != nil {
@@ -383,6 +488,443 @@ func (s *ApiServer) AuthenticateEmail(ctx context.Context, in *api.AuthenticateE
 		}
 
 		// Execute the after function lambda wrapped in a trace for stats measurement.
+		traceApiAfter(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), afterFn)
+	}
+
+	return session, nil
+}
+
+// AuthenticateEmailMMORPG handles MMORPG-specific email + password authentication with permissions.
+// Returns SessionToken containing account_id, username, and permissions array.
+// Passwords are hashed using bcrypt for secure storage.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - email authentication with bcrypt hashing
+// Task: 1.2.3 - Implement email authentication
+func (s *ApiServer) AuthenticateEmailMMORPG(ctx context.Context, in *api.AuthenticateEmailRequest) (*api.Session, error) {
+	// Extract client IP for rate limiting
+	ip, _ := extractClientAddressFromContext(s.logger, ctx)
+
+	// Check rate limiting - use email as identifier (will be empty if validation fails, but that's OK)
+	email := ""
+	if in.Account != nil {
+		email = in.Account.Email
+	}
+	if !s.loginAttemptCache.Allow(email, ip) {
+		return nil, status.Error(codes.ResourceExhausted, "Try again later.")
+	}
+
+	// Before hook (reuse standard email auth before hook)
+	if fn := s.runtime.BeforeAuthenticateEmail(); fn != nil {
+		beforeFn := func(clientIP, clientPort string) error {
+			result, err, code := fn(ctx, s.logger, "", "", nil, 0, clientIP, clientPort, in)
+			if err != nil {
+				return status.Error(code, err.Error())
+			}
+			if result == nil {
+				s.logger.Warn("Intercepted a disabled resource.", zap.Any("resource", ctx.Value(ctxFullMethodKey{}).(string)))
+				return status.Error(codes.NotFound, "Requested resource was not found.")
+			}
+			in = result
+			return nil
+		}
+
+		err := traceApiBefore(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), beforeFn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate email and password
+	if in.Account == nil {
+		return nil, status.Error(codes.InvalidArgument, "Email address and password is required.")
+	}
+
+	email = in.Account.Email
+	if email == "" {
+		return nil, status.Error(codes.InvalidArgument, "Email address is required.")
+	} else if !emailRegex.MatchString(email) {
+		return nil, status.Error(codes.InvalidArgument, "Invalid email address format.")
+	} else if len(email) < 3 || len(email) > 255 {
+		return nil, status.Error(codes.InvalidArgument, "Email address must be 3-255 bytes.")
+	}
+
+	password := in.Account.Password
+	if password == "" {
+		return nil, status.Error(codes.InvalidArgument, "Password is required.")
+	} else if len(password) < 8 {
+		return nil, status.Error(codes.InvalidArgument, "Password must be at least 8 characters.")
+	}
+
+	username := in.Username
+	if username == "" {
+		username = generateUsername()
+	} else if invalidUsernameRegex.MatchString(username) {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, no spaces or control characters allowed.")
+	} else if len(username) > 128 {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, must be 1-128 bytes.")
+	}
+
+	create := in.Create == nil || in.Create.Value
+
+	// Authenticate using MMORPG accounts table
+	accountID, dbUsername, permissions, created, err := AuthenticateEmailMMORPG(ctx, s.logger, s.db, email, password, username, create)
+	if err != nil {
+		// Add failed attempt on authentication error
+		if lockout, until := s.loginAttemptCache.Add(email, ip); lockout != LockoutTypeNone {
+			s.logger.Warn("MMORPG email authentication lockout triggered", zap.String("email", email), zap.String("ip", ip), zap.Time("locked_until", until))
+		}
+		return nil, err
+	}
+
+	// Check for MFA requirement
+	mfaRequired, mfaSecret, mfaRecoveryCodes, err := GetAccountMFAData(ctx, s.db, accountID)
+	if err != nil && err != sql.ErrNoRows {
+		s.logger.Error("Failed to retrieve MFA data", zap.Error(err), zap.String("accountID", accountID))
+		return nil, status.Error(codes.Internal, "Failed to retrieve MFA data.")
+	}
+
+	mfaEnabled := mfaSecret != nil && len(mfaSecret) > 0
+
+	if mfaEnabled {
+		// MFA is enabled - validate the provided code
+		mfaCode := ""
+		if in.Account != nil && in.Account.Vars != nil {
+			mfaCode = in.Account.Vars["mfa"]
+		}
+
+		if err := ValidateAccountMFACode(ctx, s.logger, s.db, s.config, accountID, mfaCode, mfaSecret, mfaRecoveryCodes); err != nil {
+			// Add failed attempt on MFA validation error
+			if lockout, until := s.loginAttemptCache.Add(email, ip); lockout != LockoutTypeNone {
+				s.logger.Warn("MMORPG MFA validation lockout triggered", zap.String("email", email), zap.String("ip", ip), zap.Time("locked_until", until))
+			}
+			return nil, err
+		}
+	}
+
+	// Reset attempts on successful authentication
+	s.loginAttemptCache.Reset(email)
+
+	// Generate MMORPG JWT token with permissions
+	tokenExpirySec := s.config.GetSession().TokenExpirySec
+	token, tokenID, expiresAt := GenerateMMORPGToken(
+		s.config.GetSession().EncryptionKey,
+		accountID,
+		dbUsername,
+		permissions,
+		tokenExpirySec,
+	)
+
+	// Note: MMORPG tokens don't use refresh tokens in this implementation
+	// SessionCache is not used for MMORPG tokens - stateless JWT validation only
+	session := &api.Session{
+		Created: created,
+		Token:   token,
+	}
+
+	// After hook (reuse standard email auth after hook)
+	if fn := s.runtime.AfterAuthenticateEmail(); fn != nil {
+		afterFn := func(clientIP, clientPort string) error {
+			uid := uuid.Must(uuid.FromString(accountID))
+			ctx = populateCtx(ctx, uid, dbUsername, tokenID, in.Account.Vars, expiresAt, time.Now().Unix())
+			return fn(ctx, s.logger, accountID, dbUsername, in.Account.Vars, expiresAt, clientIP, clientPort, session, in)
+		}
+
+		traceApiAfter(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), afterFn)
+	}
+
+	return session, nil
+}
+
+// AuthenticateAppleMMORPG handles MMORPG-specific Apple Sign In authentication with permissions.
+// Validates Apple ID token and returns SessionToken with account_id, username, and permissions array.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - platform token authentication
+// Task: 1.2.4 - Implement platform token authentication
+func (s *ApiServer) AuthenticateAppleMMORPG(ctx context.Context, in *api.AuthenticateAppleRequest) (*api.Session, error) {
+	// Extract client IP for rate limiting
+	ip, _ := extractClientAddressFromContext(s.logger, ctx)
+
+	// Check rate limiting - use "apple" as identifier since we don't have apple_id yet
+	identifier := "apple:" + ip
+	if !s.loginAttemptCache.Allow(identifier, ip) {
+		return nil, status.Error(codes.ResourceExhausted, "Try again later.")
+	}
+
+	// Before hook (reuse standard Apple auth before hook)
+	if fn := s.runtime.BeforeAuthenticateApple(); fn != nil {
+		beforeFn := func(clientIP, clientPort string) error {
+			result, err, code := fn(ctx, s.logger, "", "", nil, 0, clientIP, clientPort, in)
+			if err != nil {
+				return status.Error(code, err.Error())
+			}
+			if result == nil {
+				s.logger.Warn("Intercepted a disabled resource.", zap.Any("resource", ctx.Value(ctxFullMethodKey{}).(string)))
+				return status.Error(codes.NotFound, "Requested resource was not found.")
+			}
+			in = result
+			return nil
+		}
+
+		err := traceApiBefore(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), beforeFn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Check if Apple authentication is configured
+	if s.config.GetSocial().Apple.BundleId == "" {
+		return nil, status.Error(codes.FailedPrecondition, "Apple authentication is not configured.")
+	}
+
+	// Validate Apple ID token
+	if in.Account == nil || in.Account.Token == "" {
+		return nil, status.Error(codes.InvalidArgument, "Apple ID token is required.")
+	}
+
+	username := in.Username
+	if username == "" {
+		username = generateUsername()
+	} else if invalidUsernameRegex.MatchString(username) {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, no spaces or control characters allowed.")
+	} else if len(username) > 128 {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, must be 1-128 bytes.")
+	}
+
+	create := in.Create == nil || in.Create.Value
+
+	// Authenticate using MMORPG accounts table
+	accountID, dbUsername, permissions, created, err := AuthenticateAppleMMORPG(ctx, s.logger, s.db, s.socialClient, s.config.GetSocial().Apple.BundleId, in.Account.Token, username, create)
+	if err != nil {
+		// Add failed attempt on authentication error
+		if lockout, until := s.loginAttemptCache.Add(identifier, ip); lockout != LockoutTypeNone {
+			s.logger.Warn("MMORPG Apple authentication lockout triggered", zap.String("ip", ip), zap.Time("locked_until", until))
+		}
+		return nil, err
+	}
+
+	// Reset attempts on successful authentication
+	s.loginAttemptCache.Reset(identifier)
+
+	// Generate MMORPG JWT token with permissions
+	tokenExpirySec := s.config.GetSession().TokenExpirySec
+	token, tokenID, expiresAt := GenerateMMORPGToken(
+		s.config.GetSession().EncryptionKey,
+		accountID,
+		dbUsername,
+		permissions,
+		tokenExpirySec,
+	)
+
+	session := &api.Session{
+		Created: created,
+		Token:   token,
+	}
+
+	// After hook (reuse standard Apple auth after hook)
+	if fn := s.runtime.AfterAuthenticateApple(); fn != nil {
+		afterFn := func(clientIP, clientPort string) error {
+			uid := uuid.Must(uuid.FromString(accountID))
+			ctx = populateCtx(ctx, uid, dbUsername, tokenID, in.Account.Vars, expiresAt, time.Now().Unix())
+			return fn(ctx, s.logger, accountID, dbUsername, in.Account.Vars, expiresAt, clientIP, clientPort, session, in)
+		}
+
+		traceApiAfter(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), afterFn)
+	}
+
+	return session, nil
+}
+
+// AuthenticateGoogleMMORPG handles MMORPG-specific Google Play Games authentication with permissions.
+// Validates Google ID token and returns SessionToken with account_id, username, and permissions array.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - platform token authentication
+// Task: 1.2.4 - Implement platform token authentication
+func (s *ApiServer) AuthenticateGoogleMMORPG(ctx context.Context, in *api.AuthenticateGoogleRequest) (*api.Session, error) {
+	// Extract client IP for rate limiting
+	ip, _ := extractClientAddressFromContext(s.logger, ctx)
+
+	// Check rate limiting - use "google" as identifier since we don't have google_id yet
+	identifier := "google:" + ip
+	if !s.loginAttemptCache.Allow(identifier, ip) {
+		return nil, status.Error(codes.ResourceExhausted, "Try again later.")
+	}
+
+	// Before hook (reuse standard Google auth before hook)
+	if fn := s.runtime.BeforeAuthenticateGoogle(); fn != nil {
+		beforeFn := func(clientIP, clientPort string) error {
+			result, err, code := fn(ctx, s.logger, "", "", nil, 0, clientIP, clientPort, in)
+			if err != nil {
+				return status.Error(code, err.Error())
+			}
+			if result == nil {
+				s.logger.Warn("Intercepted a disabled resource.", zap.Any("resource", ctx.Value(ctxFullMethodKey{}).(string)))
+				return status.Error(codes.NotFound, "Requested resource was not found.")
+			}
+			in = result
+			return nil
+		}
+
+		err := traceApiBefore(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), beforeFn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate Google ID token
+	if in.Account == nil || in.Account.Token == "" {
+		return nil, status.Error(codes.InvalidArgument, "Google access token is required.")
+	}
+
+	username := in.Username
+	if username == "" {
+		username = generateUsername()
+	} else if invalidUsernameRegex.MatchString(username) {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, no spaces or control characters allowed.")
+	} else if len(username) > 128 {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, must be 1-128 bytes.")
+	}
+
+	create := in.Create == nil || in.Create.Value
+
+	// Authenticate using MMORPG accounts table
+	accountID, dbUsername, permissions, created, err := AuthenticateGoogleMMORPG(ctx, s.logger, s.db, s.socialClient, in.Account.Token, username, create)
+	if err != nil {
+		// Add failed attempt on authentication error
+		if lockout, until := s.loginAttemptCache.Add(identifier, ip); lockout != LockoutTypeNone {
+			s.logger.Warn("MMORPG Google authentication lockout triggered", zap.String("ip", ip), zap.Time("locked_until", until))
+		}
+		return nil, err
+	}
+
+	// Reset attempts on successful authentication
+	s.loginAttemptCache.Reset(identifier)
+
+	// Generate MMORPG JWT token with permissions
+	tokenExpirySec := s.config.GetSession().TokenExpirySec
+	token, tokenID, expiresAt := GenerateMMORPGToken(
+		s.config.GetSession().EncryptionKey,
+		accountID,
+		dbUsername,
+		permissions,
+		tokenExpirySec,
+	)
+
+	session := &api.Session{
+		Created: created,
+		Token:   token,
+	}
+
+	// After hook (reuse standard Google auth after hook)
+	if fn := s.runtime.AfterAuthenticateGoogle(); fn != nil {
+		afterFn := func(clientIP, clientPort string) error {
+			uid := uuid.Must(uuid.FromString(accountID))
+			ctx = populateCtx(ctx, uid, dbUsername, tokenID, in.Account.Vars, expiresAt, time.Now().Unix())
+			return fn(ctx, s.logger, accountID, dbUsername, in.Account.Vars, expiresAt, clientIP, clientPort, session, in)
+		}
+
+		traceApiAfter(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), afterFn)
+	}
+
+	return session, nil
+}
+
+// AuthenticateSteamMMORPG handles MMORPG-specific Steam authentication with permissions.
+// Validates Steam session ticket and returns SessionToken with account_id, username, and permissions array.
+//
+// Requirements: Requirement 1 (Player Authentication)
+// Design Reference: Authentication Service - platform token authentication
+// Task: 1.2.4 - Implement platform token authentication
+func (s *ApiServer) AuthenticateSteamMMORPG(ctx context.Context, in *api.AuthenticateSteamRequest) (*api.Session, error) {
+	// Extract client IP for rate limiting
+	ip, _ := extractClientAddressFromContext(s.logger, ctx)
+
+	// Check rate limiting - use "steam" as identifier since we don't have steam_id yet
+	identifier := "steam:" + ip
+	if !s.loginAttemptCache.Allow(identifier, ip) {
+		return nil, status.Error(codes.ResourceExhausted, "Try again later.")
+	}
+
+	// Before hook (reuse standard Steam auth before hook)
+	if fn := s.runtime.BeforeAuthenticateSteam(); fn != nil {
+		beforeFn := func(clientIP, clientPort string) error {
+			result, err, code := fn(ctx, s.logger, "", "", nil, 0, clientIP, clientPort, in)
+			if err != nil {
+				return status.Error(code, err.Error())
+			}
+			if result == nil {
+				s.logger.Warn("Intercepted a disabled resource.", zap.Any("resource", ctx.Value(ctxFullMethodKey{}).(string)))
+				return status.Error(codes.NotFound, "Requested resource was not found.")
+			}
+			in = result
+			return nil
+		}
+
+		err := traceApiBefore(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), beforeFn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Check if Steam authentication is configured
+	if s.config.GetSocial().Steam.PublisherKey == "" || s.config.GetSocial().Steam.AppID == 0 {
+		return nil, status.Error(codes.FailedPrecondition, "Steam authentication is not configured.")
+	}
+
+	// Validate Steam session ticket
+	if in.Account == nil || in.Account.Token == "" {
+		return nil, status.Error(codes.InvalidArgument, "Steam session ticket is required.")
+	}
+
+	username := in.Username
+	if username == "" {
+		username = generateUsername()
+	} else if invalidUsernameRegex.MatchString(username) {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, no spaces or control characters allowed.")
+	} else if len(username) > 128 {
+		return nil, status.Error(codes.InvalidArgument, "Username invalid, must be 1-128 bytes.")
+	}
+
+	create := in.Create == nil || in.Create.Value
+
+	// Authenticate using MMORPG accounts table
+	accountID, dbUsername, permissions, created, err := AuthenticateSteamMMORPG(ctx, s.logger, s.db, s.socialClient, s.config.GetSocial().Steam.AppID, s.config.GetSocial().Steam.PublisherKey, in.Account.Token, username, create)
+	if err != nil {
+		// Add failed attempt on authentication error
+		if lockout, until := s.loginAttemptCache.Add(identifier, ip); lockout != LockoutTypeNone {
+			s.logger.Warn("MMORPG Steam authentication lockout triggered", zap.String("ip", ip), zap.Time("locked_until", until))
+		}
+		return nil, err
+	}
+
+	// Reset attempts on successful authentication
+	s.loginAttemptCache.Reset(identifier)
+
+	// Generate MMORPG JWT token with permissions
+	tokenExpirySec := s.config.GetSession().TokenExpirySec
+	token, tokenID, expiresAt := GenerateMMORPGToken(
+		s.config.GetSession().EncryptionKey,
+		accountID,
+		dbUsername,
+		permissions,
+		tokenExpirySec,
+	)
+
+	session := &api.Session{
+		Created: created,
+		Token:   token,
+	}
+
+	// After hook (reuse standard Steam auth after hook)
+	if fn := s.runtime.AfterAuthenticateSteam(); fn != nil {
+		afterFn := func(clientIP, clientPort string) error {
+			uid := uuid.Must(uuid.FromString(accountID))
+			ctx = populateCtx(ctx, uid, dbUsername, tokenID, in.Account.Vars, expiresAt, time.Now().Unix())
+			return fn(ctx, s.logger, accountID, dbUsername, in.Account.Vars, expiresAt, clientIP, clientPort, session, in)
+		}
+
 		traceApiAfter(ctx, s.logger, s.metrics, ctx.Value(ctxFullMethodKey{}).(string), afterFn)
 	}
 
