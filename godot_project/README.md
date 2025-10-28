@@ -38,7 +38,13 @@ This Godot 4 project implements the client-side logic for connecting to the MMOR
   - Created autoload singletons (NakamaManager, WorldState)
   - Set up scene hierarchy (auth, character_select, world)
 
-- [ ] **Task 1.4.2** - Install nakama-godot plugin
+- [x] **Task 1.4.2** - Install nakama-godot plugin
+  - Installed plugin to `addons/com.heroiclabs.nakama/`
+  - Added Nakama autoload to project
+  - Configured server connection via Project Settings (nakama/server/*)
+  - Updated NakamaManager to use configurable settings
+  - See `NAKAMA_SETUP.md` for configuration details
+
 - [ ] **Task 1.4.3** - Implement authentication screen
 - [ ] **Task 1.4.4** - Implement character selection screen
 - [ ] **Task 1.4.5** - Implement character creation flow
@@ -54,7 +60,7 @@ This Godot 4 project implements the client-side logic for connecting to the MMOR
 ## Requirements
 
 - Godot 4.3+
-- nakama-godot plugin (to be installed in Task 1.4.2)
+- nakama-godot plugin (installed in `addons/com.heroiclabs.nakama/`)
 
 ## Server Integration
 
@@ -62,21 +68,28 @@ This client connects to the Nakama MMORPG server located in the parent directory
 
 ### Default Configuration
 
+Configuration is managed via **Project Settings → Nakama → Server**:
+
 - **Server Host**: 127.0.0.1
 - **Server Port**: 7350
 - **Server Protocol**: HTTP
 - **Server Key**: defaultkey
 
-Configuration can be updated in `autoload/NakamaManager.gd` (Task 1.4.2 will make these configurable).
+To modify these settings, edit `project.godot` or use the Godot editor's Project Settings panel. See `NAKAMA_SETUP.md` for detailed configuration instructions.
 
 ## Running the Project
 
 1. Open the project in Godot 4.3+
-2. Install the nakama-godot plugin (Task 1.4.2)
-3. Ensure the Nakama server is running on localhost:7350
-4. Run the project (F5)
-5. Click "Login with Device ID" to authenticate
-6. Create or select a character to enter the world
+2. Ensure the Nakama server is running on localhost:7350
+   ```powershell
+   # From repository root
+   docker compose up
+   ```
+3. Run the project (F5)
+4. Click "Login with Device ID" to authenticate
+5. Create or select a character to enter the world
+
+**Note:** Task 1.4.3 (authentication screen) is not yet implemented. The current project structure is ready for UI implementation.
 
 ## Architecture
 
@@ -94,10 +107,18 @@ The client follows the design specified in:
 
 ## Next Steps
 
-1. Install nakama-godot plugin (Task 1.4.2)
+1. ~~Install nakama-godot plugin (Task 1.4.2)~~ ✅ **Completed**
 2. Implement authentication flow (Task 1.4.3)
 3. Build character selection UI (Task 1.4.4-1.4.6)
 4. Integrate world entry and snapshot loading (Phase 2)
+
+## Configuration Documentation
+
+See `NAKAMA_SETUP.md` for detailed information about:
+- Plugin installation and structure
+- Server configuration via Project Settings
+- Usage examples for authentication and character management
+- Troubleshooting common connection issues
 
 ## License
 

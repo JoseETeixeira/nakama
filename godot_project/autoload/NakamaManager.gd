@@ -27,17 +27,26 @@ var session: NakamaSession = null
 ## WebSocket connection for real-time communication
 var socket: NakamaSocket = null
 
-## Server configuration
-## TODO: Task 1.4.2 - These will be configurable from project settings
-const SERVER_KEY := "defaultkey"
-const SERVER_HOST := "127.0.0.1"
-const SERVER_PORT := 7350
-const SERVER_PROTOCOL := "http"
+## Server configuration (loaded from project settings)
+## Task 1.4.2 - Configured via Project Settings -> Nakama
+var server_key: String
+var server_host: String
+var server_port: int
+var server_protocol: String
 
 ## Called when the node enters the scene tree
 func _ready() -> void:
 	print("[NakamaManager] Initializing Nakama client...")
-	client = Nakama.create_client(SERVER_KEY, SERVER_HOST, SERVER_PORT, SERVER_PROTOCOL)
+
+	# Load configuration from project settings (Task 1.4.2)
+	server_key = ProjectSettings.get_setting("nakama/server/key", "defaultkey")
+	server_host = ProjectSettings.get_setting("nakama/server/host", "127.0.0.1")
+	server_port = ProjectSettings.get_setting("nakama/server/port", 7350)
+	server_protocol = ProjectSettings.get_setting("nakama/server/protocol", "http")
+
+	print("[NakamaManager] Server config: %s://%s:%d (key: %s)" % [server_protocol, server_host, server_port, server_key])
+
+	client = Nakama.create_client(server_key, server_host, server_port, server_protocol)
 	print("[NakamaManager] Nakama client initialized")
 
 
