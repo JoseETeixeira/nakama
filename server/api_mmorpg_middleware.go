@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/gofrs/uuid/v5"
-	"github.com/heroiclabs/nakama/v3/internal/ctxkeys"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -189,12 +188,8 @@ func populateMMORPGCtx(ctx context.Context, accountID uuid.UUID, username string
 }
 
 // Context key types for MMORPG authentication
-// Reuse Nakama's standard keys where possible
-type ctxUserIDKey = ctxkeys.UserIDKey
-type ctxUsernameKey = ctxkeys.UsernameKey
-type ctxTokenIDKey = ctxkeys.TokenIDKey
-type ctxExpiryKey = ctxkeys.ExpiryKey
-type ctxTokenIssuedAtKey = ctxkeys.TokenIssuedAtKey
+// Reuse Nakama's standard keys from api.go
+// (ctxUserIDKey, ctxUsernameKey, ctxTokenIDKey, ctxExpiryKey, ctxTokenIssuedAtKey)
 
 // MMORPG-specific context key for permissions
 type ctxPermissionsKey struct{}

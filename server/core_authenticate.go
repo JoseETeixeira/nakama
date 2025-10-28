@@ -575,12 +575,13 @@ func AuthenticateGoogleMMORPG(ctx context.Context, logger *zap.Logger, db *sql.D
 	query := "SELECT account_id, permissions FROM accounts WHERE google_id = $1 AND banned = FALSE"
 	var accountID string
 	var permissions []string
-	err = db.QueryRowContext(ctx, query, profile.ID).Scan(&accountID, &permissions)
+	googleID := profile.GetGoogleId()
+	err = db.QueryRowContext(ctx, query, googleID).Scan(&accountID, &permissions)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			found = false
 		} else {
-			logger.Error("Error looking up account by Google ID.", zap.Error(err), zap.String("googleID", profile.ID), zap.String("username", username), zap.Bool("create", create))
+			logger.Error("Error looking up account by Google ID.", zap.Error(err), zap.String("googleID", googleID), zap.String("username", username), zap.Bool("create", create))
 			return "", "", nil, false, status.Error(codes.Internal, "Error finding account.")
 		}
 	}
@@ -591,7 +592,7 @@ func AuthenticateGoogleMMORPG(ctx context.Context, logger *zap.Logger, db *sql.D
 		var banned bool
 		queryBan := "SELECT banned FROM accounts WHERE account_id = $1"
 		if err := db.QueryRowContext(ctx, queryBan, accountID).Scan(&banned); err == nil && banned {
-			logger.Info("Account is banned.", zap.String("accountID", accountID), zap.String("googleID", profile.ID))
+			logger.Info("Account is banned.", zap.String("accountID", accountID), zap.String("googleID", googleID))
 			return "", "", nil, false, status.Error(codes.PermissionDenied, "Account banned.")
 		}
 
@@ -622,15 +623,15 @@ func AuthenticateGoogleMMORPG(ctx context.Context, logger *zap.Logger, db *sql.D
 INSERT INTO accounts (account_id, google_id, permissions, created_at, last_login_at, banned)
 VALUES ($1, $2, $3, NOW(), NOW(), FALSE)`
 
-	result, err := db.ExecContext(ctx, query, accountID, profile.ID, defaultPermissions)
+	result, err := db.ExecContext(ctx, query, accountID, googleID, defaultPermissions)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == dbErrorUniqueViolation {
 			// Concurrent insert - another request created this google_id
-			logger.Info("Did not insert new account as Google ID already exists.", zap.Error(err), zap.String("googleID", profile.ID))
+			logger.Info("Did not insert new account as Google ID already exists.", zap.Error(err), zap.String("googleID", googleID))
 			return "", "", nil, false, status.Error(codes.Internal, "Error finding or creating account.")
 		}
-		logger.Error("Cannot create account with Google ID.", zap.Error(err), zap.String("googleID", profile.ID), zap.String("username", username))
+		logger.Error("Cannot create account with Google ID.", zap.Error(err), zap.String("googleID", googleID), zap.String("username", username))
 		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
 	}
 
@@ -639,7 +640,7 @@ VALUES ($1, $2, $3, NOW(), NOW(), FALSE)`
 		return "", "", nil, false, status.Error(codes.Internal, "Error creating account.")
 	}
 
-	logger.Info("Created new MMORPG account with Google ID.", zap.String("accountID", accountID), zap.String("googleID", profile.ID), zap.Strings("permissions", defaultPermissions))
+	logger.Info("Created new MMORPG account with Google ID.", zap.String("accountID", accountID), zap.String("googleID", googleID), zap.Strings("permissions", defaultPermissions))
 	return accountID, username, defaultPermissions, true, nil
 }
 
@@ -652,12 +653,13 @@ VALUES ($1, $2, $3, NOW(), NOW(), FALSE)`
 // Task: 1.2.4 - Implement platform token authentication
 func AuthenticateSteamMMORPG(ctx context.Context, logger *zap.Logger, db *sql.DB, client *social.Client, appID int, publisherKey, token, username string, create bool) (string, string, []string, bool, error) {
 	// Validate Steam session ticket with Steam's servers
-	steamID, err := client.CheckSteamToken(ctx, appID, publisherKey, token)
+	steamProfile, err := client.GetSteamProfile(ctx, publisherKey, appID, token)
 	if err != nil {
 		logger.Info("Could not authenticate Steam profile.", zap.Error(err))
 		return "", "", nil, false, status.Error(codes.Unauthenticated, "Could not authenticate Steam profile.")
 	}
 
+	steamID := strconv.FormatUint(steamProfile.SteamID, 10)
 	found := true
 
 	// Look for an existing account by steam_id

@@ -185,3 +185,15 @@ all the tests, and drop the environment afterwards.
 ### License
 
 This project is licensed under the [Apache-2 License](https://github.com/heroiclabs/nakama/blob/master/LICENSE).
+
+
+# Build nakama from source (DOCKER)
+`docker compose build nakama`
+
+# Run nakama with database migrations (DOCKER)
+`docker compose up --build`
+
+- The default Nakama console credentials are:
+
+Username: admin
+Password: password

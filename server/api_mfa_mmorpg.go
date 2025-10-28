@@ -186,7 +186,7 @@ func RpcDisableMFA(ctx context.Context, logger *zap.Logger, db *sql.DB, config C
 	}
 
 	// Get current MFA data
-	mfaRequired, mfaSecret, mfaRecoveryCodes, err := GetAccountMFAData(ctx, db, accountID.String())
+	_, mfaSecret, mfaRecoveryCodes, err := GetAccountMFAData(ctx, db, accountID.String())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", status.Error(codes.NotFound, "MFA is not enabled for this account.")

@@ -1,6 +1,14 @@
 nakama
 .cookie
 
+# TypeScript Runtime Modules - Compiled JavaScript
+data/modules/**/*.js
+!data/modules/**/*.d.ts
+
+# Node.js dependencies
+node_modules/
+package-lock.json
+
 # Created by https://www.toptal.com/developers/gitignore/api/go,angular,node,intellij+all,visualstudiocode,visualstudio,sublimetext,windows,linux,macos
 # Edit at https://www.toptal.com/developers/gitignore?templates=go,angular,node,intellij+all,visualstudiocode,visualstudio,sublimetext,windows,linux,macos
 

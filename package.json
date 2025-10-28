@@ -1,0 +1,15 @@
+{
+  "name": "nakama-runtime-modules",
+  "version": "1.0.0",
+  "description": "TypeScript runtime modules for Nakama MMORPG",
+  "scripts": {
+    "build": "node build-modules.js",
+    "watch": "node build-modules.js --watch",
+    "dev": "npm run build && docker compose up",
+    "dev:build": "npm run build && docker compose up --build"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "chokidar": "^3.5.3"
+  }
+}

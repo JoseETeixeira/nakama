@@ -1,0 +1,32 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; but this file can be edited manually.
+; For more options, see the advanced template at:
+; https://github.com/godotengine/godot/blob/master/misc/dist/project_godot_template.txt
+
+config_version=5
+
+[application]
+
+config/name="MMORPG Nakama Client"
+config/description="Godot 4 client for MMORPG-grade Nakama server integration"
+run/main_scene="res://scenes/auth/LoginScreen.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+NakamaManager="*res://autoload/NakamaManager.gd"
+WorldState="*res://autoload/WorldState.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/mode=2
+window/stretch/mode="canvas_items"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+textures/canvas_textures/default_texture_filter=2

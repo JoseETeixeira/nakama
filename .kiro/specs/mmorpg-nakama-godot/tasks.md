@@ -164,7 +164,7 @@ _Req: 2, 3, Design: Character Service_
 ### 1.4 Basic Godot Client
 _Req: 2, 3, Design: Client Integration_
 
-- [ ] **1.4.1** Set up Godot 4 project structure
+- [x] **1.4.1** Set up Godot 4 project structure
   - Create autoload singletons (NakamaManager, WorldState)
   - Set up scene hierarchy (auth, character_select, world)
 

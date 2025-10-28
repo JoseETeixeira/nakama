@@ -578,7 +578,7 @@ func (s *ApiServer) AuthenticateEmailMMORPG(ctx context.Context, in *api.Authent
 	}
 
 	// Check for MFA requirement
-	mfaRequired, mfaSecret, mfaRecoveryCodes, err := GetAccountMFAData(ctx, s.db, accountID)
+	_, mfaSecret, mfaRecoveryCodes, err := GetAccountMFAData(ctx, s.db, accountID)
 	if err != nil && err != sql.ErrNoRows {
 		s.logger.Error("Failed to retrieve MFA data", zap.Error(err), zap.String("accountID", accountID))
 		return nil, status.Error(codes.Internal, "Failed to retrieve MFA data.")

@@ -119,6 +119,8 @@ function rpcListCharacters(
     throw Error('User not authenticated');
   }
 
+  // HOT RELOAD TEST: This log proves runtime module changes are working
+  logger.info('[HOT-RELOAD-TEST] Character list RPC called - hot reload is working!');
   logger.info('Listing characters for account: %s', accountId);
 
   // Query characters table by account_id
