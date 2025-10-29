@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "TypeScript runtime modules for Nakama MMORPG",
   "scripts": {
-    "build": "node build-modules.js",
-    "watch": "node build-modules.js --watch",
+    "build": "node build-runtime.js",
+    "watch": "node build-runtime.js --watch",
     "dev": "npm run build && docker compose up",
     "dev:build": "npm run build && docker compose up --build"
   },

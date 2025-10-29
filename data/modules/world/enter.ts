@@ -9,7 +9,16 @@
  * Requirements: 2 (Character Selection - last_zone_id), 4 (World Entry)
  */
 
-import { Position } from './types';
+/**
+ * Position type (dimension-agnostic)
+ * For 2D worlds: {x, y} or {x, y, z: 0}
+ * For 3D worlds: {x, y, z}
+ */
+interface Position {
+  x: number;
+  y: number;
+  z?: number;
+}
 
 /**
  * Response format for world_enter RPC
@@ -102,12 +111,12 @@ function InitModule(
  * @param payload - JSON: { character_id: string }
  * @returns JSON response with shard_id, zone_id, spawn coordinates
  */
-async function rpcWorldEnter(
+export function rpcWorldEnter(
   ctx: any,
   logger: any,
   nk: any,
   payload: string
-): Promise<string> {
+): string {
   const accountId = ctx.userId;
   logger.info('world_enter RPC called by account %s', accountId);
 
@@ -204,6 +213,27 @@ async function rpcWorldEnter(
   logger.info('Character %s entering world at zone %s (shard %s) at position (%f, %f, %f)',
     characterId, zoneId, shardId, spawnPosition.x, spawnPosition.y, spawnPosition.z);
 
+  // Update character's last_zone_id and last_position in database
+  // This ensures zone_snapshot can validate the character is in the correct zone
+  try {
+    const updateQuery = `
+      UPDATE characters
+      SET last_zone_id = $1, last_position = $2
+      WHERE character_id = $3 AND account_id = $4
+    `;
+    const positionJson = JSON.stringify({
+      x: spawnPosition.x,
+      y: spawnPosition.y,
+      z: spawnPosition.z
+    });
+
+    nk.sqlExec(updateQuery, [zoneId, positionJson, characterId, accountId]);
+    logger.info('Updated character %s zone and position in database', characterId);
+  } catch (error) {
+    logger.error('Failed to update character %s zone/position: %s', characterId, error);
+    // Don't fail world entry if database update fails - client can still play
+  }
+
   // Task 4.2.2: Auto-subscribe to zone channel
   // Requirement 12: WHEN player joins zone THEN Nakama SHALL subscribe to zone channel
   try {
@@ -213,7 +243,7 @@ async function rpcWorldEnter(
     // Channel type 3 = group (multi-user channel)
     // persist: false (transient subscription, removed on disconnect)
     // hidden: false (visible to other channel members)
-    await nk.channelJoin(
+    nk.channelJoin(
       accountId,        // user_id (account_id for authentication)
       zoneChannelId,    // channel_id (format: "zone:zone_id")
       3,                // type: 3 = group channel

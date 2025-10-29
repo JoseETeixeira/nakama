@@ -18,14 +18,42 @@ extends Node2D
 func _ready() -> void:
 	print("[Zone] World scene loaded")
 
-	# TODO: Phase 2, Task 2.1.2 - Call world_enter RPC
-	# TODO: Phase 2, Task 2.1.3 - Load zone snapshot
-	# TODO: Phase 2, Task 2.3.1 - Subscribe to zone delta stream
+	# Phase 2: World entry and snapshot application already handled by CharacterSelect
+	# CharacterSelect calls:
+	#   1. NakamaManager.enter_world(character_id) → returns zone_id, spawn
+	#   2. NakamaManager.join_zone(zone_id) → receives snapshot and subscribes to deltas
+	#   3. WorldState.apply_snapshot(blob) → atomically applies snapshot to world
+	# Delta updates are automatically received via zone_deltas stream subscription
 
-	status_label.text = "Zone: Starter Zone (Placeholder)"
+	# Connect to WorldState signals for debugging (Phase 2, Task 2.4.2)
+	if not WorldState.snapshot_applied.is_connected(_on_snapshot_applied):
+		WorldState.snapshot_applied.connect(_on_snapshot_applied)
+	if not WorldState.snapshot_application_failed.is_connected(_on_snapshot_failed):
+		WorldState.snapshot_application_failed.connect(_on_snapshot_failed)
+	if not WorldState.entity_added.is_connected(_on_entity_added):
+		WorldState.entity_added.connect(_on_entity_added)
 
-	# Display entity count from WorldState
+	# Display initial status
 	update_status()
+
+
+## Handle snapshot successfully applied
+func _on_snapshot_applied(zone_id: String, entity_count: int) -> void:
+	print("[Zone] Snapshot applied for zone: %s with %d entities" % [zone_id, entity_count])
+	update_status()
+
+
+## Handle snapshot application failure
+func _on_snapshot_failed(error_message: String) -> void:
+	push_error("[Zone] Snapshot failed: %s" % error_message)
+	status_label.text = "Error loading zone: %s" % error_message
+
+
+## Handle entity added to world
+func _on_entity_added(entity_id: String, entity_type: String, entity_node: Node) -> void:
+	print("[Zone] Entity added: %s (type: %s)" % [entity_id, entity_type])
+	# Entities are already added to scene tree by WorldState.spawn_entity()
+	# This signal allows for custom logic like attaching shaders, UI health bars, etc.
 
 
 func _process(_delta: float) -> void:

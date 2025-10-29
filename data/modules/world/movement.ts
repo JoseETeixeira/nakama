@@ -116,7 +116,7 @@ const DEFAULT_CONFIG: MovementConfig = {
  * @param payload JSON payload with move intent
  * @returns Move result with ack and optional correction
  */
-function rpcMoveIntent(
+export function rpcMoveIntent(
   ctx: any,
   logger: any,
   nk: any,

@@ -73,6 +73,7 @@ interface ZoneSnapshotResponse {
  * - Bandwidth optimization for players re-entering familiar zones
  */
 interface RawSnapshot {
+  zone_id: string;  // Zone identifier for client-side validation
   zone_time: number;
 
   /**
@@ -261,9 +262,14 @@ function loadCharacterPosition(
     }
 
     // Parse last_position from JSONB (supports both 2D and 3D)
+    // Note: Nakama's sqlQuery returns JSONB as already-parsed object, not string
     if (character.last_position) {
       try {
-        const parsed = JSON.parse(character.last_position);
+        // Handle both parsed object (from JSONB) and string (from older data)
+        const parsed = typeof character.last_position === 'string'
+          ? JSON.parse(character.last_position)
+          : character.last_position;
+
         const position: Position = {
           x: parsed.x || 0,
           y: parsed.y || 0,
@@ -410,8 +416,11 @@ function getVisibleTerrainChunks(
  * @returns Compressed binary data
  */
 function compressSnapshot(jsonString: string): Uint8Array {
-  const textEncoder = new TextEncoder();
-  const jsonBytes = textEncoder.encode(jsonString);
+  // Convert string to Uint8Array manually (TextEncoder not available in Nakama runtime)
+  const jsonBytes = new Uint8Array(jsonString.length);
+  for (let i = 0; i < jsonString.length; i++) {
+    jsonBytes[i] = jsonString.charCodeAt(i);
+  }
 
   // TODO: PRODUCTION - Replace with actual zlib deflate compression
   // See function documentation above for integration options
@@ -428,13 +437,28 @@ function compressSnapshot(jsonString: string): Uint8Array {
  * @returns Base64 string
  */
 function toBase64(data: Uint8Array): string {
-  // Convert Uint8Array to string for base64 encoding
-  let binary = '';
-  for (let i = 0; i < data.length; i++) {
-    binary += String.fromCharCode(data[i]);
+  // Manual base64 encoding (btoa not available in Nakama runtime)
+  const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+
+  while (i < data.length) {
+    const byte1 = data[i++];
+    const byte2 = i < data.length ? data[i++] : 0;
+    const byte3 = i < data.length ? data[i++] : 0;
+
+    const encoded1 = byte1 >> 2;
+    const encoded2 = ((byte1 & 0x03) << 4) | (byte2 >> 4);
+    const encoded3 = ((byte2 & 0x0f) << 2) | (byte3 >> 6);
+    const encoded4 = byte3 & 0x3f;
+
+    result += base64Chars[encoded1];
+    result += base64Chars[encoded2];
+    result += i - 2 < data.length ? base64Chars[encoded3] : '=';
+    result += i - 1 < data.length ? base64Chars[encoded4] : '=';
   }
-  // Use btoa for base64 encoding (available in Nakama runtime)
-  return btoa(binary);
+
+  return result;
 }
 
 /**
@@ -457,7 +481,7 @@ function toBase64(data: Uint8Array): string {
  * @param payload - JSON request payload
  * @returns JSON response with compressed snapshot
  */
-function rpcZoneSnapshot(ctx: any, logger: any, nk: any, payload: string): string {
+export function rpcZoneSnapshot(ctx: any, logger: any, nk: any, payload: string): string {
   // Verify user is authenticated
   if (!ctx.userId) {
     logger.warn('Unauthenticated zone_snapshot request');
@@ -523,6 +547,7 @@ function rpcZoneSnapshot(ctx: any, logger: any, nk: any, payload: string): strin
 
   // Build raw snapshot data structure
   const rawSnapshot: RawSnapshot = {
+    zone_id: zone_id,  // Include zone_id so client knows which zone this snapshot is for
     zone_time: zoneState.zoneTime,
     terrain_chunks: zoneState.terrainChunks,
     entities: visibleEntities,
@@ -595,6 +620,3 @@ function InitModule(
 
   logger.info('zone_snapshot RPC registered successfully');
 }
-
-// Export RPC handler and module initializer
-export { rpcZoneSnapshot, InitModule };

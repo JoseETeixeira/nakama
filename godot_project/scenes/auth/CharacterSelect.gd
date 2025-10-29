@@ -109,8 +109,21 @@ func _on_select_button_pressed() -> void:
 
 	status_label.text = "Entering world..."
 
-	# Enter world with selected character
-	# TODO: Phase 2, Task 2.1.2 - Implement world_enter RPC
-	# For now, just transition to placeholder world scene
-	await get_tree().create_timer(1.0).timeout
+	# Phase 2, Task 2.1.2: Enter world with selected character
+	var world_data = await NakamaManager.enter_world(character_id)
+
+	if world_data.is_empty():
+		status_label.text = "Failed to enter world"
+		select_button.disabled = false
+		return
+
+	var zone_id = world_data.get("zoneId", "")
+	var spawn = world_data.get("spawn", {})
+
+	status_label.text = "Loading zone: %s..." % zone_id
+
+	# Phase 2, Task 2.1.3: Join zone and receive snapshot
+	await NakamaManager.join_zone(zone_id, spawn)
+
+	# Transition to world scene
 	get_tree().change_scene_to_file("res://scenes/world/Zone.tscn")

@@ -106,7 +106,7 @@ function InitModule(
  * @param payload - Empty payload (account_id from context)
  * @returns JSON response with characters array
  */
-function rpcListCharacters(
+export function rpcListCharacters(
   ctx: any,
   logger: any,
   nk: any,
@@ -232,10 +232,10 @@ function containsProfanity(name: string): boolean {
  * @param ctx - Execution context with userId (account_id)
  * @param logger - Logger instance
  * @param nk - Nakama module API
- * @param payload - JSON string with {name: string, archetype_id: string}
+ * @param payload - JSON string with name and archetype_id
  * @returns JSON response with character_id
  */
-function rpcCreateCharacter(
+export function rpcCreateCharacter(
   ctx: any,
   logger: any,
   nk: any,
@@ -416,7 +416,7 @@ function rpcCreateCharacter(
  * - Active buffs (Phase 3 - currently empty array)
  * - Quest log (Future phase - currently empty array)
  */
-function rpcSelectCharacter(
+export function rpcSelectCharacter(
   ctx: any,
   logger: any,
   nk: any,
@@ -562,7 +562,7 @@ function rpcSelectCharacter(
  * Data Integrity: Uses database transactions to ensure atomic deletion.
  * GDPR Compliance: Supports right to be forgotten by removing personal game data.
  */
-function rpcDeleteCharacter(
+export function rpcDeleteCharacter(
   ctx: any,
   logger: any,
   nk: any,

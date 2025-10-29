@@ -24,11 +24,14 @@ func decompress_snapshot(blob_base64: String) -> Dictionary:
 		push_error("[SnapshotApplier] Failed to decode base64 snapshot")
 		return {}
 
-	# Step 2: Decompress using Deflate
+	# Step 2: Try to decompress using Deflate
+	# Note: Server currently sends uncompressed data, so try decompression first,
+	# then fall back to treating it as uncompressed JSON if that fails
 	var json_bytes := compressed_data.decompress_dynamic(-1, FileAccess.COMPRESSION_DEFLATE)
 	if json_bytes.is_empty():
-		push_error("[SnapshotApplier] Failed to decompress snapshot (Deflate)")
-		return {}
+		# Decompression failed - assume it's uncompressed (server placeholder)
+		print("[SnapshotApplier] Decompression failed, treating as uncompressed data")
+		json_bytes = compressed_data
 
 	# Step 3: Convert bytes to string
 	var json_string := json_bytes.get_string_from_utf8()

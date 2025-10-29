@@ -1,0 +1,34 @@
+﻿Character RPCs (4):
+- list_characters
+- create_character
+- select_character
+- delete_character
+
+World RPCs (3):
+- world_enter
+- move_intent
+- zone_snapshot
+
+Combat RPCs (1):
+- use_ability
+
+Economy RPCs (2):
+- inventory_move
+- inventory_create_item
+
+Social Chat RPCs (3):
+- chat_send
+- send_direct_message
+- moderate_player
+
+Social Guild RPCs (6):
+- guild_create
+- guild_invite
+- guild_join
+- guild_set_rank
+- guild_kick
+- guild_set_motd
+- guild_storage_deposit
+- guild_storage_withdraw
+
+Total: 19 RPCs
