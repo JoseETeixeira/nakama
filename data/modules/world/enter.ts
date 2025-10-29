@@ -102,12 +102,12 @@ function InitModule(
  * @param payload - JSON: { character_id: string }
  * @returns JSON response with shard_id, zone_id, spawn coordinates
  */
-function rpcWorldEnter(
+async function rpcWorldEnter(
   ctx: any,
   logger: any,
   nk: any,
   payload: string
-): string {
+): Promise<string> {
   const accountId = ctx.userId;
   logger.info('world_enter RPC called by account %s', accountId);
 
@@ -203,6 +203,30 @@ function rpcWorldEnter(
 
   logger.info('Character %s entering world at zone %s (shard %s) at position (%f, %f, %f)',
     characterId, zoneId, shardId, spawnPosition.x, spawnPosition.y, spawnPosition.z);
+
+  // Task 4.2.2: Auto-subscribe to zone channel
+  // Requirement 12: WHEN player joins zone THEN Nakama SHALL subscribe to zone channel
+  try {
+    const zoneChannelId = `zone:${zoneId}`;
+
+    // Join zone channel for chat
+    // Channel type 3 = group (multi-user channel)
+    // persist: false (transient subscription, removed on disconnect)
+    // hidden: false (visible to other channel members)
+    await nk.channelJoin(
+      accountId,        // user_id (account_id for authentication)
+      zoneChannelId,    // channel_id (format: "zone:zone_id")
+      3,                // type: 3 = group channel
+      false,            // persist: false (subscription doesn't persist across disconnects)
+      false             // hidden: false (user is visible in channel member list)
+    );
+
+    logger.info('Character %s subscribed to zone channel %s', characterId, zoneChannelId);
+  } catch (error) {
+    // Log error but don't fail world entry if channel subscription fails
+    logger.error('Failed to subscribe character %s to zone channel %s: %s',
+      characterId, `zone:${zoneId}`, error);
+  }
 
   // Build response
   const response: ZoneEntryResponse = {
