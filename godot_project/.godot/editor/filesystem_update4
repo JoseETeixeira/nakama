@@ -2,3 +2,4 @@ res://scenes/world/entities/Entity2D.tscn
 res://autoload/NakamaManager.gd
 res://scripts/networking/SnapshotApplier.gd
 res://autoload/WorldState.gd
+res://scenes/world/Zone.tscn
