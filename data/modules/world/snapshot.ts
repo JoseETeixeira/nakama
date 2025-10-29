@@ -10,6 +10,8 @@
  */
 
 import { Position, ZoneState, EntitySnapshot, GlobalEffect } from './types';
+import * as pako from 'pako';
+import { registerPlayerJoin } from './zone-manager';
 
 /**
  * Request format for zone_snapshot RPC
@@ -296,16 +298,83 @@ function loadCharacterPosition(
 }
 
 /**
- * Create default zone state for zones without persisted data
- * This provides a fallback for new or reset zones
+ * Create default zone state for new or reset zones
+ * This provides a fallback for new or reset zones with sample entities
  */
 function createDefaultZoneState(zoneId: string): ZoneState {
+  // Create sample entities for testing (NPCs, resource nodes, etc.)
+  const sampleEntities: EntitySnapshot[] = [
+    // Friendly NPC
+    {
+      entityId: `${zoneId}_npc_guide`,
+      type: 'npc',
+      transform: {
+        position: { x: 10, y: 5, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 }
+      },
+      vitals: {
+        health: 100,
+        maxHealth: 100,
+        mana: 50,
+        maxMana: 50
+      },
+      state: {
+        behavior: 'idle',
+        name: 'Village Guide',
+        level: 10,
+        faction: 'friendly'
+      }
+    },
+    // Enemy mob
+    {
+      entityId: `${zoneId}_mob_goblin_1`,
+      type: 'mob',
+      transform: {
+        position: { x: -15, y: 8, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 }
+      },
+      vitals: {
+        health: 50,
+        maxHealth: 50,
+        mana: 0,
+        maxMana: 0
+      },
+      state: {
+        behavior: 'patrol',
+        name: 'Goblin Scout',
+        level: 3,
+        faction: 'hostile'
+      }
+    },
+    // Resource node
+    {
+      entityId: `${zoneId}_resource_tree_1`,
+      type: 'resource',
+      transform: {
+        position: { x: 20, y: -10, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 }
+      },
+      vitals: {
+        health: 100,
+        maxHealth: 100,
+        mana: 0,
+        maxMana: 0
+      },
+      state: {
+        behavior: 'active',
+        name: 'Oak Tree',
+        resourceType: 'wood',
+        harvestable: true
+      }
+    }
+  ];
+
   return {
     zoneId: zoneId,
     shardId: 'shard_01', // Default shard for single-shard deployment
     zoneTime: Date.now(),
     version: 1,
-    entities: [], // Empty zone - will be populated by zone tick process
+    entities: sampleEntities, // Include sample entities for testing
     terrainChunks: generateDefaultTerrainChunks(zoneId), // Task 2.1.4
     timers: {},
     activeEffects: []
@@ -392,52 +461,45 @@ function getVisibleTerrainChunks(
  * Compress JSON data using Deflate (zlib)
  * Requirement 4: Deflate compression for zone snapshots
  *
- * NOTE: Production Integration Required
- * =====================================
- * This function currently returns uncompressed data as a placeholder.
- *
- * For production deployment, integrate with Nakama runtime's zlib compression:
- *
- * Option 1 - Use Nakama built-in compression (if available):
- *   const compressed = nk.zlibCompress(jsonBytes, DEFLATE_COMPRESSION_LEVEL);
- *
- * Option 2 - Use Node.js zlib in Nakama runtime:
- *   import * as zlib from 'zlib';
- *   const compressed = zlib.deflateSync(jsonBytes, { level: DEFLATE_COMPRESSION_LEVEL });
- *
- * Option 3 - Use pako library (pure JavaScript zlib):
- *   import * as pako from 'pako';
- *   const compressed = pako.deflate(jsonBytes, { level: DEFLATE_COMPRESSION_LEVEL });
- *
- * The client-side decompression (Godot) already expects Deflate format:
+ * Uses pako library (pure JavaScript zlib implementation) for Deflate compression.
+ * The client-side decompression (Godot) expects Deflate format:
  *   compressed_data.decompress_dynamic(-1, FileAccess.COMPRESSION_DEFLATE)
  *
  * @param jsonString - JSON string to compress
  * @returns Compressed binary data
  */
 function compressSnapshot(jsonString: string): Uint8Array {
-  // Convert string to Uint8Array manually (TextEncoder not available in Nakama runtime)
-  const jsonBytes = new Uint8Array(jsonString.length);
-  for (let i = 0; i < jsonString.length; i++) {
-    jsonBytes[i] = jsonString.charCodeAt(i);
+  try {
+    // Compress using pako (Deflate, compression level 6 for balance)
+    const compressed = pako.deflate(jsonString, { level: 6 });
+    return compressed;
+  } catch (error: any) {
+    throw new Error(`Snapshot compression failed: ${error.message}`);
   }
-
-  // TODO: PRODUCTION - Replace with actual zlib deflate compression
-  // See function documentation above for integration options
-
-  // Placeholder: Return uncompressed bytes
-  // This will work for testing but will not meet the 512KB size requirement
-  // for large zones. Integration testing will validate actual compression.
-  return jsonBytes;
 }
 
 /**
- * Encode binary data to base64 string
+ * Encode binary data to hexadecimal string
+ * Safer alternative to base64 for Nakama's JavaScript runtime
+ * @param data - Binary data to encode
+ * @returns Hex string
+ */
+function toHex(data: Uint8Array): string {
+  let result = '';
+  for (let i = 0; i < data.length; i++) {
+    const hex = data[i].toString(16);
+    result += (hex.length === 1 ? '0' + hex : hex);
+  }
+  return result;
+}
+
+/**
+ * Encode binary data to base64 string using manual encoding
  * @param data - Binary data to encode
  * @returns Base64 string
  */
 function toBase64(data: Uint8Array): string {
-  // Manual base64 encoding (btoa not available in Nakama runtime)
+  // Manual base64 encoding
   const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   let result = '';
   let i = 0;
@@ -581,8 +643,12 @@ export function rpcZoneSnapshot(ctx: any, logger: any, nk: any, payload: string)
     // In production: reduce entity count, lower precision, chunk terrain, etc.
   }
 
-  // Encode to base64 for JSON transmission
-  const snapshotBlob = toBase64(compressedData);
+  // Encode to HEX instead of base64 (safer for Nakama's JavaScript runtime)
+  // Base64 encoding was causing Nakama HTTP layer to hang
+  const snapshotBlob = toHex(compressedData);
+
+  // Task 2.3.1: Register player joining zone and get match ID for delta streaming
+  const matchId = registerPlayerJoin(nk, logger, zone_id, accountId, ctx.sessionId || '');
 
   // Build response
   const response: ZoneSnapshotResponse = {
@@ -592,10 +658,19 @@ export function rpcZoneSnapshot(ctx: any, logger: any, nk: any, payload: string)
     compressed_size: compressedSize
   };
 
-  logger.info('Zone snapshot generated successfully for zone %s (version %d)',
-    zone_id, zoneState.version);
+  // Add match_id to response so client can join the match for delta streaming
+  (response as any).match_id = matchId;
 
-  return JSON.stringify(response);
+  logger.info('Zone snapshot generated successfully for zone %s (version %d, match %s)',
+    zone_id, zoneState.version, matchId);
+
+  // HACK: Build JSON manually to avoid potential JSON.stringify issues with large base64 strings
+  // This bypasses any potential encoding issues in Nakama's JSON stringifier
+  const responseJson = `{"snapshot_blob":"${snapshotBlob}","version":${zoneState.version},"uncompressed_size":${uncompressedSize},"compressed_size":${compressedSize},"match_id":"${matchId}"}`;
+
+  logger.debug('Returning full response (%d bytes, blob length: %d)', responseJson.length, snapshotBlob.length);
+
+  return responseJson;
 }
 
 /**

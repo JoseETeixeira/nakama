@@ -18,6 +18,17 @@ import { rpcWorldEnter } from './world/enter';
 import { rpcMoveIntent } from './world/movement';
 import { rpcZoneSnapshot } from './world/snapshot';
 
+// Import zone match handler
+import {
+  matchInit,
+  matchJoinAttempt,
+  matchJoin,
+  matchLeave,
+  matchLoop,
+  matchTerminate,
+  matchSignal
+} from './world/zone-match';
+
 // Import combat module RPCs
 import { rpcUseAbility } from './combat/use_ability';
 
@@ -60,7 +71,10 @@ function InitModule(
   logger.info('Loading vendor catalogs...');
   loadVendorCatalogs(nk, logger);
 
-  // Schedule vendor stock refresh (runs every 60 seconds)
+  // NOTE: Scheduler API not available in JavaScript runtime
+  // Stock refresh can be triggered manually or via other mechanisms if needed
+  // TODO: Implement alternative stock refresh mechanism (e.g., on-demand or via Go runtime)
+  /*
   logger.info('Scheduling vendor stock refresh task...');
   const stockRefreshId = 'vendor_stock_refresh';
   const stockRefreshDelay = 60; // seconds
@@ -71,6 +85,7 @@ function InitModule(
     stockRefreshDelay // repeat interval
   );
   logger.info('Vendor stock refresh scheduled (every %d seconds)', stockRefreshDelay);
+  */
 
   // Register character service RPCs
   logger.info('Registering character service RPCs...');
@@ -133,6 +148,19 @@ function InitModule(
   initializer.registerRpc('guild_storage_deposit', rpcGuildStorageDeposit);
   initializer.registerRpc('guild_storage_withdraw', rpcGuildStorageWithdraw);
   logger.info('Social guild RPCs registered');
+
+  // Register zone match handler
+  logger.info('Registering zone match handler...');
+  initializer.registerMatch('zone_match', {
+    matchInit,
+    matchJoinAttempt,
+    matchJoin,
+    matchLeave,
+    matchLoop,
+    matchTerminate,
+    matchSignal
+  });
+  logger.info('Zone match handler registered');
 
   logger.info('=== Runtime Initialization Complete ===');
   logger.info('Total RPCs registered: 28');

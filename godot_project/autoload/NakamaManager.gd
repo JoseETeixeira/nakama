@@ -270,6 +270,7 @@ func join_zone(zone_id: String, spawn_position: Variant = Vector2(0, 0)) -> void
 	var version = snapshot_data.get("version", 0)
 	var compressed_size = snapshot_data.get("compressed_size", 0)
 	var uncompressed_size = snapshot_data.get("uncompressed_size", 0)
+	var match_id = snapshot_data.get("match_id", "")
 
 	print("[NakamaManager] Received zone snapshot (version %d, %d KB compressed, %d KB uncompressed)" % [
 		version, compressed_size / 1024, uncompressed_size / 1024
@@ -278,23 +279,25 @@ func join_zone(zone_id: String, spawn_position: Variant = Vector2(0, 0)) -> void
 	# Apply snapshot to world state (Task 2.4.1)
 	WorldState.apply_snapshot(snapshot_blob)
 
-	# Subscribe to zone delta stream (Task 2.4.4)
-	# Connect signal handler for delta updates
-	if not socket.received_stream_state.is_connected(_on_zone_delta):
-		socket.received_stream_state.connect(_on_zone_delta)
+	# Join zone match for delta streaming (Task 2.3.1)
+	if match_id != "":
+		print("[NakamaManager] Joining zone match: %s" % match_id)
+		var match_result = await socket.join_match_async(match_id)
+		if match_result.is_exception():
+			push_error("[NakamaManager] Failed to join zone match: ", match_result.get_exception().message)
+		else:
+			print("[NakamaManager] Successfully joined zone match for delta streaming")
 
-	# TODO: Join the zone stream to receive delta updates
-	# The join_stream_async function name has changed in newer SDK versions
-	# For now, skip stream subscription - snapshot works without it
-	# var stream_result = await socket.join_stream_async("zone_deltas", zone_id)
-	# if stream_result.is_exception():
-	# 	push_error("[NakamaManager] Failed to subscribe to zone deltas: ", stream_result.get_exception().message)
-	# 	return
+			# Connect signal handler for match state updates (delta updates)
+			if not socket.received_match_state.is_connected(_on_zone_delta_match):
+				socket.received_match_state.connect(_on_zone_delta_match)
+	else:
+		push_warning("[NakamaManager] No match_id in snapshot response, delta streaming unavailable")
 
-	print("[NakamaManager] Zone joined successfully (stream subscription TODO)")
+	print("[NakamaManager] Zone joined successfully")
 
 
-## Handle zone delta updates from server
+## Handle zone delta updates from server (legacy stream-based)
 ##
 ## Phase 2, Task: 2.4.4 - Implement delta stream subscription
 ## Phase 2, Task: 2.4.5 - Implement delta application
@@ -311,6 +314,32 @@ func _on_zone_delta(stream: NakamaRTAPI.Stream) -> void:
 
 	if delta_data == null or typeof(delta_data) != TYPE_DICTIONARY:
 		push_warning("[NakamaManager] Invalid delta data received")
+		return
+
+	# Apply delta to world state (Task 2.4.5)
+	WorldState.apply_delta(delta_data)
+
+
+## Handle zone delta updates from match state (Task 2.3.1)
+##
+## Phase 2, Task: 2.3.1 - Implement zone delta stream via matches
+## Phase 2, Task: 2.4.5 - Implement delta application
+##
+## Signal handler for Nakama's received_match_state signal.
+## Receives real-time delta updates via match and applies them to the world state.
+##
+## Parameters (from Nakama SDK):
+##   match_state: NakamaRTAPI.MatchData object containing delta data
+func _on_zone_delta_match(match_state: NakamaRTAPI.MatchData) -> void:
+	# Parse delta data from match state
+	# Note: match_state.data is already a String in Nakama Godot SDK
+	var delta_json: String
+	delta_json = match_state.data
+
+	var delta_data = JSON.parse_string(delta_json)
+
+	if delta_data == null or typeof(delta_data) != TYPE_DICTIONARY:
+		push_warning("[NakamaManager] Invalid delta data received from match")
 		return
 
 	# Apply delta to world state (Task 2.4.5)

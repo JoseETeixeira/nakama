@@ -36,8 +36,8 @@ async function buildRuntime() {
 
     // Remove the IIFE wrapper
     bundleContent = bundleContent
-      .replace(/var __NAKAMA_BUNDLE__ = \(\(\) => \{\s*/, '') // Remove opening
-      .replace(/\}\)\(\);\s*$/, ''); // Remove closing
+      .replace(/var __NAKAMA_BUNDLE__ = \(\(\) => \{\s*/m, '') // Remove opening
+      .replace(/\}\)\(\);?\s*$/m, ''); // Remove closing (with optional semicolon)
 
     // Write back
     fs.writeFileSync('data/modules/main.js', bundleContent);

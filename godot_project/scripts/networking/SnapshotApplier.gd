@@ -15,19 +15,22 @@ const MAX_APPLY_TIME_MS := 50.0
 ##
 ## @param blob_base64: Base64-encoded compressed snapshot from server
 ## @return Dictionary: Parsed snapshot data or null on failure
-func decompress_snapshot(blob_base64: String) -> Dictionary:
+func decompress_snapshot(blob_hex: String) -> Dictionary:
 	var start_time := Time.get_ticks_msec()
 
-	# Step 1: Decode base64 to raw bytes
-	var compressed_data := Marshalls.base64_to_raw(blob_base64)
+	# Step 1: Decode hex string to raw bytes
+	var compressed_data := _hex_to_bytes(blob_hex)
 	if compressed_data.is_empty():
-		push_error("[SnapshotApplier] Failed to decode base64 snapshot")
+		push_error("[SnapshotApplier] Failed to decode hex snapshot")
 		return {}
 
-	# Step 2: Try to decompress using Deflate
-	# Note: Server currently sends uncompressed data, so try decompression first,
-	# then fall back to treating it as uncompressed JSON if that fails
+	print("[SnapshotApplier] Decoded hex: %d bytes compressed data" % compressed_data.size())
+
+	# Step 2: Decompress using Deflate
+	print("[SnapshotApplier] Attempting Deflate decompression...")
 	var json_bytes := compressed_data.decompress_dynamic(-1, FileAccess.COMPRESSION_DEFLATE)
+	print("[SnapshotApplier] Decompression complete: %d bytes" % json_bytes.size())
+
 	if json_bytes.is_empty():
 		# Decompression failed - assume it's uncompressed (server placeholder)
 		print("[SnapshotApplier] Decompression failed, treating as uncompressed data")
@@ -48,6 +51,17 @@ func decompress_snapshot(blob_base64: String) -> Dictionary:
 		push_warning("[SnapshotApplier] Snapshot decompression exceeded 50ms budget: %d ms" % elapsed_ms)
 
 	return snapshot
+
+
+## Convert hex string to byte array
+func _hex_to_bytes(hex_string: String) -> PackedByteArray:
+	var result := PackedByteArray()
+	for i in range(0, hex_string.length(), 2):
+		var byte_str := hex_string.substr(i, 2)
+		var byte_val := ("0x" + byte_str).hex_to_int()
+		result.append(byte_val)
+	return result
+
 
 
 ## Parse JSON string into a structured snapshot dictionary.
