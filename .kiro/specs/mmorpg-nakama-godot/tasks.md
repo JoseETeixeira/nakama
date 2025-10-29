@@ -2414,35 +2414,44 @@ _Req: 16, Design: Economy Service_
   - Deduct cost, add item to inventory
   - Update vendor stock (if limited)
 
-- [ ] **4.5.3** Implement vendor_sell RPC
+- [x] **4.5.3** Implement vendor_sell RPC
   - Verify item is sellable (check metadata)
   - Remove item from inventory
   - Credit player wallet
 
-- [ ] **4.5.4** Implement vendor stock refresh
+- [x] **4.5.4** Implement vendor stock refresh
   - Cron job or event-based refresh (e.g., daily reset)
   - Restore stock limits per vendor config
 
 ### 4.6 Loot System
 _Req: 17, Design: Economy Service_
 
-- [ ] **4.6.1** Create drop table configuration
-  - JSON files for drop tables (drop_table_id, items, drop_chance, quantity_range)
-  - Support nested tables (rare drops)
+- [x] **4.6.1** Create drop table database schema
+  - Migration: drop_tables table (drop_table_id, entity_type, drop_policy)
+  - Migration: drop_table_items table (drop_table_id, item_id, drop_chance, quantity_min/max)
+  - Support nested tables via nested_table_id (self-referencing foreign key)
+  - Seed data with example loot tables (goblin, dragon boss, resource nodes)
 
-- [ ] **4.6.2** Implement loot generation
+- [x] **4.6.2** Implement loot generation RPC
+  - Load drop table and items from database
   - Server-side RNG (seeded, non-client-predictable)
   - Roll drops based on drop_chance percentages
+  - Recursively resolve nested_table_id for rare drops
   - Generate item instances with UIDs
+  - Handle guaranteed drops (is_guaranteed = TRUE)
 
 - [ ] **4.6.3** Implement loot drops on NPC death
-  - Associate NPCs with drop_table_id
-  - Generate loot on death event
-  - Spawn loot in world or directly to killer's inventory
+  - Associate NPC templates with drop_table_id
+  - Trigger loot generation on NPC death event
+  - Apply drop_policy (per_killer vs shared_party)
+  - Add loot to player inventory or spawn in world
+  - Broadcast loot notifications to participants
 
 - [ ] **4.6.4** Add loot analytics
-  - Log all loot drops to event_log
+  - Log all loot drops to event_log table
+  - Include: entity_id, drop_table_id, items dropped, player_id, timestamp
   - Track drop rates for balancing
+  - Create analytics queries for drop rate verification
 
 ---
 

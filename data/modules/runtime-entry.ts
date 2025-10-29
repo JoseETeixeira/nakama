@@ -24,8 +24,9 @@ import { rpcUseAbility } from './combat/use_ability';
 // Import economy module RPCs
 import { rpcInventoryMove, rpcInventoryCreateItem } from './economy/inventory';
 import { rpcTradeOpen, rpcTradeAddItem, rpcTradeLock, rpcTradeCommit, rpcTradeCancel } from './economy/trading';
-import { loadVendorCatalogs, rpcGetVendorCatalog } from './economy/vendor_loader';
-import { rpcVendorBuy } from './economy/vendor';
+import { loadVendorCatalogs, rpcGetVendorCatalog, scheduledVendorStockRefresh } from './economy/vendor_loader';
+import { rpcVendorBuy, rpcVendorSell } from './economy/vendor';
+import { rpcGenerateLoot } from './economy/loot';
 
 // Import social module RPCs
 import {
@@ -58,6 +59,18 @@ function InitModule(
   // Load vendor catalogs from JSON files
   logger.info('Loading vendor catalogs...');
   loadVendorCatalogs(nk, logger);
+
+  // Schedule vendor stock refresh (runs every 60 seconds)
+  logger.info('Scheduling vendor stock refresh task...');
+  const stockRefreshId = 'vendor_stock_refresh';
+  const stockRefreshDelay = 60; // seconds
+  nk.schedulerRegister(
+    stockRefreshId,
+    scheduledVendorStockRefresh,
+    stockRefreshDelay,
+    stockRefreshDelay // repeat interval
+  );
+  logger.info('Vendor stock refresh scheduled (every %d seconds)', stockRefreshDelay);
 
   // Register character service RPCs
   logger.info('Registering character service RPCs...');
@@ -98,6 +111,8 @@ function InitModule(
   initializer.registerRpc('trade_cancel', rpcTradeCancel);
   initializer.registerRpc('get_vendor_catalog', rpcGetVendorCatalog);
   initializer.registerRpc('vendor_buy', rpcVendorBuy);
+  initializer.registerRpc('vendor_sell', rpcVendorSell);
+  initializer.registerRpc('generate_loot', rpcGenerateLoot);
   logger.info('Economy RPCs registered');
 
   // Register social chat RPCs
@@ -120,7 +135,7 @@ function InitModule(
   logger.info('Social guild RPCs registered');
 
   logger.info('=== Runtime Initialization Complete ===');
-  logger.info('Total RPCs registered: 26');
+  logger.info('Total RPCs registered: 28');
 }
 
 // Expose InitModule globally for Nakama to find it

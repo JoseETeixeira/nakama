@@ -12,7 +12,7 @@ World RPCs (3):
 Combat RPCs (1):
 - use_ability
 
-Economy RPCs (9):
+Economy RPCs (11):
 - inventory_move
 - inventory_create_item
 - trade_open
@@ -22,6 +22,8 @@ Economy RPCs (9):
 - trade_cancel
 - get_vendor_catalog
 - vendor_buy
+- vendor_sell
+- generate_loot
 
 Social Chat RPCs (3):
 - chat_send
@@ -38,4 +40,7 @@ Social Guild RPCs (6):
 - guild_storage_deposit
 - guild_storage_withdraw
 
-Total: 26 RPCs
+Scheduled Tasks (1):
+- vendor_stock_refresh (runs every 60 seconds)
+
+Total: 28 RPCs, 1 Scheduled Task

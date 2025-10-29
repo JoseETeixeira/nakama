@@ -291,3 +291,65 @@ export function rpcGetVendorCatalog(
 
   return JSON.stringify(response);
 }
+
+/**
+ * Scheduled Vendor Stock Refresh
+ *
+ * Proactively checks all vendor stock entries and resets those whose
+ * reset interval has elapsed. This runs as a background scheduled task.
+ *
+ * Called periodically (e.g., every 60 seconds) by Nakama runtime scheduler.
+ *
+ * @param ctx Nakama context
+ * @param logger Nakama logger
+ * @param nk Nakama runtime API
+ * @param payload Empty payload (not used)
+ */
+export function scheduledVendorStockRefresh(
+  ctx: any,
+  logger: any,
+  nk: any,
+  payload: string
+): void {
+  const now = Date.now();
+  let refreshCount = 0;
+  const refreshedItems: string[] = [];
+
+  // Iterate through all vendor stock entries
+  vendorStock.forEach((stock, stockKey) => {
+    const [vendor_id, item_id] = stockKey.split(':');
+    const item = getCatalogItem(vendor_id, item_id);
+
+    if (!item || item.stock_reset_interval === null) {
+      // Skip items with no reset interval
+      return;
+    }
+
+    const timeSinceReset = (now - stock.last_reset) / 1000; // seconds
+
+    if (timeSinceReset >= item.stock_reset_interval) {
+      // Reset stock to catalog limit
+      stock.current_stock = item.stock_limit!;
+      stock.last_reset = now;
+      vendorStock.set(stockKey, stock);
+
+      refreshCount++;
+      refreshedItems.push(`${vendor_id}:${item_id} -> ${item.stock_limit}`);
+
+      logger.debug(
+        '[vendor_stock_refresh] Reset stock for vendor=%s item=%s to %d',
+        vendor_id,
+        item_id,
+        item.stock_limit
+      );
+    }
+  });
+
+  if (refreshCount > 0) {
+    logger.info(
+      '[vendor_stock_refresh] Refreshed %d vendor stock entries: %s',
+      refreshCount,
+      refreshedItems.join(', ')
+    );
+  }
+}
