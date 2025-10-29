@@ -1,0 +1,72 @@
+{
+  "vendor_id": "alchemist_001",
+  "vendor_name": "Mystic Potions",
+  "vendor_type": "alchemist",
+  "location": "starter_town",
+  "description": "Skilled alchemist offering potions and elixirs",
+  "catalog": [
+    {
+      "item_id": "potion_health_greater",
+      "name": "Greater Health Potion",
+      "description": "Restores 150 HP",
+      "price": 50,
+      "currency": "gold",
+      "stock_limit": 30,
+      "stock_reset_interval": 3600,
+      "sellable": true,
+      "sell_price": 25,
+      "metadata": {
+        "item_type": "consumable",
+        "rarity": "uncommon"
+      }
+    },
+    {
+      "item_id": "potion_mana_greater",
+      "name": "Greater Mana Potion",
+      "description": "Restores 100 MP",
+      "price": 60,
+      "currency": "gold",
+      "stock_limit": 30,
+      "stock_reset_interval": 3600,
+      "sellable": true,
+      "sell_price": 30,
+      "metadata": {
+        "item_type": "consumable",
+        "rarity": "uncommon"
+      }
+    },
+    {
+      "item_id": "elixir_strength",
+      "name": "Elixir of Strength",
+      "description": "Increases STR by 5 for 60 seconds",
+      "price": 75,
+      "currency": "gold",
+      "stock_limit": 20,
+      "stock_reset_interval": 7200,
+      "sellable": true,
+      "sell_price": 35,
+      "metadata": {
+        "item_type": "consumable",
+        "rarity": "uncommon",
+        "buff_type": "strength",
+        "buff_duration": 60
+      }
+    },
+    {
+      "item_id": "antidote",
+      "name": "Antidote",
+      "description": "Cures poison effects",
+      "price": 20,
+      "currency": "gold",
+      "stock_limit": 50,
+      "stock_reset_interval": 3600,
+      "sellable": true,
+      "sell_price": 10,
+      "metadata": {
+        "item_type": "consumable",
+        "rarity": "common",
+        "effect": "cure_poison"
+      }
+    }
+  ]
+}

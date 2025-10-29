@@ -24,6 +24,8 @@ import { rpcUseAbility } from './combat/use_ability';
 // Import economy module RPCs
 import { rpcInventoryMove, rpcInventoryCreateItem } from './economy/inventory';
 import { rpcTradeOpen, rpcTradeAddItem, rpcTradeLock, rpcTradeCommit, rpcTradeCancel } from './economy/trading';
+import { loadVendorCatalogs, rpcGetVendorCatalog } from './economy/vendor_loader';
+import { rpcVendorBuy } from './economy/vendor';
 
 // Import social module RPCs
 import {
@@ -52,6 +54,10 @@ function InitModule(
   initializer: any
 ): void {
   logger.info('=== Nakama MMORPG Runtime Initializing ===');
+
+  // Load vendor catalogs from JSON files
+  logger.info('Loading vendor catalogs...');
+  loadVendorCatalogs(nk, logger);
 
   // Register character service RPCs
   logger.info('Registering character service RPCs...');
@@ -90,6 +96,8 @@ function InitModule(
   initializer.registerRpc('trade_lock', rpcTradeLock);
   initializer.registerRpc('trade_commit', rpcTradeCommit);
   initializer.registerRpc('trade_cancel', rpcTradeCancel);
+  initializer.registerRpc('get_vendor_catalog', rpcGetVendorCatalog);
+  initializer.registerRpc('vendor_buy', rpcVendorBuy);
   logger.info('Economy RPCs registered');
 
   // Register social chat RPCs
@@ -112,7 +120,7 @@ function InitModule(
   logger.info('Social guild RPCs registered');
 
   logger.info('=== Runtime Initialization Complete ===');
-  logger.info('Total RPCs registered: 24');
+  logger.info('Total RPCs registered: 26');
 }
 
 // Expose InitModule globally for Nakama to find it

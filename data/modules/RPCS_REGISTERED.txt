@@ -12,7 +12,7 @@ World RPCs (3):
 Combat RPCs (1):
 - use_ability
 
-Economy RPCs (7):
+Economy RPCs (9):
 - inventory_move
 - inventory_create_item
 - trade_open
@@ -20,6 +20,8 @@ Economy RPCs (7):
 - trade_lock
 - trade_commit
 - trade_cancel
+- get_vendor_catalog
+- vendor_buy
 
 Social Chat RPCs (3):
 - chat_send
@@ -36,4 +38,4 @@ Social Guild RPCs (6):
 - guild_storage_deposit
 - guild_storage_withdraw
 
-Total: 24 RPCs
+Total: 26 RPCs

@@ -1,0 +1,84 @@
+{
+  "vendor_id": "starter_vendor_001",
+  "vendor_name": "General Merchant",
+  "vendor_type": "general",
+  "location": "starter_town",
+  "description": "A friendly merchant selling basic supplies for new adventurers",
+  "catalog": [
+    {
+      "item_id": "potion_health_minor",
+      "name": "Minor Health Potion",
+      "description": "Restores 50 HP",
+      "price": 10,
+      "currency": "gold",
+      "stock_limit": 100,
+      "stock_reset_interval": 3600,
+      "sellable": true,
+      "sell_price": 5,
+      "metadata": {
+        "item_type": "consumable",
+        "rarity": "common"
+      }
+    },
+    {
+      "item_id": "potion_mana_minor",
+      "name": "Minor Mana Potion",
+      "description": "Restores 30 MP",
+      "price": 12,
+      "currency": "gold",
+      "stock_limit": 100,
+      "stock_reset_interval": 3600,
+      "sellable": true,
+      "sell_price": 6,
+      "metadata": {
+        "item_type": "consumable",
+        "rarity": "common"
+      }
+    },
+    {
+      "item_id": "bread_loaf",
+      "name": "Loaf of Bread",
+      "description": "Restores 20 HP over 10 seconds",
+      "price": 5,
+      "currency": "gold",
+      "stock_limit": null,
+      "stock_reset_interval": null,
+      "sellable": true,
+      "sell_price": 2,
+      "metadata": {
+        "item_type": "food",
+        "rarity": "common"
+      }
+    },
+    {
+      "item_id": "rope_coil",
+      "name": "Coil of Rope",
+      "description": "50 feet of sturdy rope",
+      "price": 15,
+      "currency": "gold",
+      "stock_limit": null,
+      "stock_reset_interval": null,
+      "sellable": true,
+      "sell_price": 7,
+      "metadata": {
+        "item_type": "tool",
+        "rarity": "common"
+      }
+    },
+    {
+      "item_id": "torch",
+      "name": "Torch",
+      "description": "Provides light in dark places",
+      "price": 3,
+      "currency": "gold",
+      "stock_limit": null,
+      "stock_reset_interval": null,
+      "sellable": true,
+      "sell_price": 1,
+      "metadata": {
+        "item_type": "tool",
+        "rarity": "common"
+      }
+    }
+  ]
+}

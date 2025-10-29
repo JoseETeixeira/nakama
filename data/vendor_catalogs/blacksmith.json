@@ -1,0 +1,80 @@
+{
+  "vendor_id": "blacksmith_001",
+  "vendor_name": "Iron Forge Blacksmith",
+  "vendor_type": "blacksmith",
+  "location": "starter_town",
+  "description": "Master blacksmith specializing in weapons and armor",
+  "catalog": [
+    {
+      "item_id": "sword_iron",
+      "name": "Iron Sword",
+      "description": "A sturdy iron blade. Damage: 10-15",
+      "price": 100,
+      "currency": "gold",
+      "stock_limit": 5,
+      "stock_reset_interval": 86400,
+      "sellable": true,
+      "sell_price": 50,
+      "metadata": {
+        "item_type": "weapon",
+        "weapon_type": "sword",
+        "rarity": "common",
+        "damage_min": 10,
+        "damage_max": 15,
+        "required_level": 1
+      }
+    },
+    {
+      "item_id": "armor_leather_chest",
+      "name": "Leather Chestplate",
+      "description": "Basic leather armor. Defense: 5",
+      "price": 80,
+      "currency": "gold",
+      "stock_limit": 5,
+      "stock_reset_interval": 86400,
+      "sellable": true,
+      "sell_price": 40,
+      "metadata": {
+        "item_type": "armor",
+        "armor_type": "chest",
+        "rarity": "common",
+        "defense": 5,
+        "required_level": 1
+      }
+    },
+    {
+      "item_id": "shield_wooden",
+      "name": "Wooden Shield",
+      "description": "A simple wooden shield. Block: 3",
+      "price": 60,
+      "currency": "gold",
+      "stock_limit": 10,
+      "stock_reset_interval": 86400,
+      "sellable": true,
+      "sell_price": 30,
+      "metadata": {
+        "item_type": "armor",
+        "armor_type": "shield",
+        "rarity": "common",
+        "block": 3,
+        "required_level": 1
+      }
+    },
+    {
+      "item_id": "repair_kit_basic",
+      "name": "Basic Repair Kit",
+      "description": "Restores 20 durability to equipment",
+      "price": 25,
+      "currency": "gold",
+      "stock_limit": 20,
+      "stock_reset_interval": 3600,
+      "sellable": false,
+      "sell_price": 0,
+      "metadata": {
+        "item_type": "consumable",
+        "rarity": "common",
+        "durability_restore": 20
+      }
+    }
+  ]
+}

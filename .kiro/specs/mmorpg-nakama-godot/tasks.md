@@ -2405,11 +2405,11 @@ _Req: 15, Design: Economy Service_
 ### 4.5 Vendor System
 _Req: 16, Design: Economy Service_
 
-- [ ] **4.5.1** Create vendor configuration data
+- [x] **4.5.1** Create vendor configuration data
   - JSON files for vendor catalogs (vendor_id, items, prices, stock)
   - Load into runtime
 
-- [ ] **4.5.2** Implement vendor_buy RPC
+- [x] **4.5.2** Implement vendor_buy RPC
   - Verify player has sufficient currency (wallet)
   - Deduct cost, add item to inventory
   - Update vendor stock (if limited)
