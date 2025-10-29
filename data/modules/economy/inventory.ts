@@ -77,6 +77,50 @@ interface CreateItemRequest {
 }
 
 /**
+ * Validate slot ID format
+ *
+ * Phase 4, Task: 4.3.4 - Add inventory validation
+ * Requirements: 14 (Transactional Inventory Management)
+ *
+ * Validates that slot IDs follow expected patterns:
+ * - backpack_{0-99}: Regular inventory slots
+ * - equipped_{slot}: Equipped gear slots (weapon, helmet, chest, legs, boots, gloves, ring1, ring2, trinket1, trinket2)
+ * - bank_{0-199}: Bank storage slots
+ *
+ * @param slotId The slot ID to validate
+ * @returns Object with valid flag and optional error message
+ */
+function validateSlotId(slotId: string): { valid: boolean; error?: string } {
+  const backpackPattern = /^backpack_\d{1,2}$/; // backpack_0 to backpack_99
+  const equippedPattern = /^equipped_(weapon|helmet|chest|legs|boots|gloves|ring1|ring2|trinket1|trinket2)$/;
+  const bankPattern = /^bank_\d{1,3}$/; // bank_0 to bank_999
+
+  if (backpackPattern.test(slotId) || equippedPattern.test(slotId) || bankPattern.test(slotId)) {
+    return { valid: true };
+  }
+
+  return {
+    valid: false,
+    error: `Invalid slot ID format: "${slotId}". Expected formats: backpack_N, equipped_{weapon|helmet|chest|legs|boots|gloves|ring1|ring2|trinket1|trinket2}, bank_N`
+  };
+}
+
+/**
+ * Check if a slot is an equipped slot
+ *
+ * Phase 4, Task: 4.3.4 - Add inventory validation
+ * Requirements: 14 (Transactional Inventory Management)
+ *
+ * Equipped items cannot be moved directly - they must be unequipped first.
+ *
+ * @param slotId The slot ID to check
+ * @returns True if the slot is an equipped slot
+ */
+function isEquippedSlot(slotId: string): boolean {
+  return slotId.startsWith('equipped_');
+}
+
+/**
  * Generate a globally unique item UID
  *
  * Phase 4, Task: 4.3.2 - Implement item UID enforcement
@@ -235,6 +279,22 @@ export async function rpcInventoryMove(
   // Prevent moving to same slot
   if (request.src === request.dst) {
     throw Error('Source and destination slots must be different');
+  }
+
+  // Task 4.3.4: Validate slot IDs
+  const srcValidation = validateSlotId(request.src);
+  if (!srcValidation.valid) {
+    throw Error(srcValidation.error);
+  }
+
+  const dstValidation = validateSlotId(request.dst);
+  if (!dstValidation.valid) {
+    throw Error(dstValidation.error);
+  }
+
+  // Task 4.3.4: Prevent moving equipped items without unequip
+  if (isEquippedSlot(request.src)) {
+    throw Error(`Cannot move equipped item from slot "${request.src}". Please unequip the item first.`);
   }
 
   const accountId = ctx.userId;
@@ -469,6 +529,12 @@ export async function rpcInventoryCreateItem(
 
   if (!request.quantity || request.quantity < 1) {
     throw Error('quantity must be at least 1');
+  }
+
+  // Task 4.3.4: Validate slot ID format
+  const slotValidation = validateSlotId(request.slotId);
+  if (!slotValidation.valid) {
+    throw Error(slotValidation.error);
   }
 
   const accountId = ctx.userId;

@@ -144,17 +144,34 @@ function rpcListCharacters(
   const result = nk.sqlQuery(query, parameters);
 
   // Transform database rows to Character interface
-  const characters: Character[] = result.map((row: any) => ({
-    characterId: row.character_id,
-    accountId: row.account_id,
-    name: row.name,
-    archetypeId: row.archetype_id,
-    level: row.level,
-    lastZoneId: row.last_zone_id || '',
-    lastPosition: row.last_position ? JSON.parse(row.last_position) : { x: 0, y: 0, z: 0 },
-    createdAt: new Date(row.created_at).getTime(),
-    lastLoginAt: row.last_login_at ? new Date(row.last_login_at).getTime() : 0
-  }));
+  const characters: Character[] = result.map((row: any) => {
+    // Parse last_position safely (handle NULL, empty string, or invalid JSON)
+    let lastPosition = { x: 0, y: 0, z: 0 };
+    if (row.last_position) {
+      try {
+        const parsed = typeof row.last_position === 'string'
+          ? JSON.parse(row.last_position)
+          : row.last_position;
+        if (parsed && typeof parsed === 'object') {
+          lastPosition = parsed;
+        }
+      } catch (e) {
+        logger.warn('Failed to parse last_position for character %s: %s', row.character_id, e);
+      }
+    }
+
+    return {
+      characterId: row.character_id,
+      accountId: row.account_id,
+      name: row.name,
+      archetypeId: row.archetype_id,
+      level: row.level,
+      lastZoneId: row.last_zone_id || '',
+      lastPosition: lastPosition,
+      createdAt: new Date(row.created_at).getTime(),
+      lastLoginAt: row.last_login_at ? new Date(row.last_login_at).getTime() : 0
+    };
+  });
 
   logger.info('Found %d characters for account %s', characters.length, accountId);
 
@@ -275,6 +292,22 @@ function rpcCreateCharacter(
   const nameCheckResult = nk.sqlQuery(nameCheckQuery, [characterName]);
   if (nameCheckResult.length > 0) {
     throw Error('Character name already taken');
+  }
+
+  // Ensure account exists in accounts table (auto-create if missing)
+  // This handles the case where users authenticate via Nakama's built-in auth
+  // (device, email, etc.) which doesn't create an MMORPG account record.
+  const accountCheckQuery = `SELECT account_id FROM accounts WHERE account_id = $1`;
+  const accountCheckResult = nk.sqlQuery(accountCheckQuery, [accountId]);
+
+  if (accountCheckResult.length === 0) {
+    // Account doesn't exist - create it with default permissions
+    logger.info('Creating MMORPG account record for Nakama user %s', accountId);
+    const createAccountQuery = `
+      INSERT INTO accounts (account_id, permissions, created_at, last_login_at, banned)
+      VALUES ($1, $2, NOW(), NOW(), FALSE)
+    `;
+    nk.sqlExec(createAccountQuery, [accountId, ['player']]);
   }
 
   // Check character slot limit for account
@@ -438,9 +471,29 @@ function rpcSelectCharacter(
 
   const row = result[0];
 
-  // Parse JSONB fields
-  const stats = row.stats ? JSON.parse(row.stats) : {};
-  const lastPosition = row.last_position ? JSON.parse(row.last_position) : { x: 0, y: 0, z: 0 };
+  // Parse JSONB fields safely
+  let stats = {};
+  if (row.stats) {
+    try {
+      stats = typeof row.stats === 'string' ? JSON.parse(row.stats) : row.stats;
+    } catch (e) {
+      logger.warn('Failed to parse stats for character %s: %s', characterId, e);
+    }
+  }
+
+  let lastPosition = { x: 0, y: 0, z: 0 };
+  if (row.last_position) {
+    try {
+      const parsed = typeof row.last_position === 'string'
+        ? JSON.parse(row.last_position)
+        : row.last_position;
+      if (parsed && typeof parsed === 'object') {
+        lastPosition = parsed;
+      }
+    } catch (e) {
+      logger.warn('Failed to parse last_position for character %s: %s', characterId, e);
+    }
+  }
 
   // Update last_login_at timestamp to track character usage
   const now = new Date().toISOString();

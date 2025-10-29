@@ -2342,13 +2342,38 @@ _Req: 14, Design: Economy Service_
   - Error Handling: Database constraint violations, UID collisions, slot conflicts
   - Global Uniqueness: UIDs are unique across ALL players (enforced at database level)
 
-- [ ] **4.3.3** Implement item stacking
+- [x] **4.3.3** Implement item stacking
   - Stack identical items (same item_id, metadata)
   - Split stacks on move
+  - Implementation: Item stacking already fully implemented in Tasks 4.3.1 and 4.3.2
+  - Stacking Logic: `canStack = (item_id matches) AND (metadata matches via JSON comparison)`
+  - Full Stack Merge: Moving entire stack increments destination, deletes source
+  - Partial Stack Merge: Decrements source quantity, increments destination quantity
+  - Stack Splitting: Moving partial quantity to empty slot creates new item with new UID
+  - Optimistic Locking: All stack operations use version checks to prevent race conditions
+  - inventory_move RPC: Handles stacking in lines 339-387 (CASE 2: destination occupied)
+  - inventory_create_item RPC: Also supports stacking when creating items in occupied slots
+  - Metadata Comparison: JSON.stringify ensures exact metadata match for stacking
+  - Error Handling: Clear error message when items cannot stack ("different item")
+  - Transaction Safety: All merge/split operations atomic within database transaction
 
-- [ ] **4.3.4** Add inventory validation
+- [x] **4.3.4** Add inventory validation
   - Reject invalid slot IDs
   - Prevent moving equipped items without unequip
+  - **Implementation:**
+    - validateSlotId() function validates slot ID formats with regex patterns
+      - backpack_N (0-99): Regular inventory slots
+      - equipped_{weapon|helmet|chest|legs|boots|gloves|ring1|ring2|trinket1|trinket2}: Equipped gear slots
+      - bank_N (0-999): Bank storage slots
+    - isEquippedSlot() helper checks if slot starts with "equipped_"
+    - inventory_move RPC: Validates both src and dst slot IDs before any database operations
+    - inventory_move RPC: Rejects moves from equipped slots with clear error message
+    - inventory_create_item RPC: Validates target slot ID format
+    - Error Messages:
+      - Invalid slot format: "Invalid slot ID format: '{slotId}'. Expected formats: backpack_N, equipped_{slot}, bank_N"
+      - Equipped item move: "Cannot move equipped item from slot '{slotId}'. Please unequip the item first."
+    - Fail-fast validation: All slot validations occur before database queries
+    - Server-authoritative: Prevents malicious clients from using invalid slot IDs
 
 ### 4.4 Trading System
 _Req: 15, Design: Economy Service_
