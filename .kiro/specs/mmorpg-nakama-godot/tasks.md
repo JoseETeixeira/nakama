@@ -2378,26 +2378,26 @@ _Req: 14, Design: Economy Service_
 ### 4.4 Trading System
 _Req: 15, Design: Economy Service_
 
-- [ ] **4.4.1** Implement trade_open RPC
+- [x] **4.4.1** Implement trade_open RPC
   - Create trade_session record
   - Lock both players' inventories (prevent external modifications)
   - Set 5-minute expiration
 
-- [ ] **4.4.2** Implement trade_add_item RPC
+- [x] **4.4.2** Implement trade_add_item RPC
   - Add item to participant's offer
   - Update trade_session.items_1 or items_2
 
-- [ ] **4.4.3** Implement trade_lock RPC
+- [x] **4.4.3** Implement trade_lock RPC
   - Mark trade as locked (both parties confirmed)
   - Cannot add/remove items after lock
 
-- [ ] **4.4.4** Implement trade_commit RPC (2PC)
+- [x] **4.4.4** Implement trade_commit RPC (2PC)
   - Phase 1: Verify both inventories still have offered items
   - Phase 2: Deduct from source inventories, add to target inventories
   - Rollback on any failure
   - Log transaction to audit_logs
 
-- [ ] **4.4.5** Implement trade cancellation
+- [x] **4.4.5** Implement trade cancellation
   - Cancel if either player disconnects
   - Cancel on timeout (5 min)
   - Unlock inventories

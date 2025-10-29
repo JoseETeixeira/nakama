@@ -23,6 +23,7 @@ import { rpcUseAbility } from './combat/use_ability';
 
 // Import economy module RPCs
 import { rpcInventoryMove, rpcInventoryCreateItem } from './economy/inventory';
+import { rpcTradeOpen, rpcTradeAddItem, rpcTradeLock, rpcTradeCommit, rpcTradeCancel } from './economy/trading';
 
 // Import social module RPCs
 import {
@@ -84,6 +85,11 @@ function InitModule(
   logger.info('Registering economy RPCs...');
   initializer.registerRpc('inventory_move', rpcInventoryMove);
   initializer.registerRpc('inventory_create_item', rpcInventoryCreateItem);
+  initializer.registerRpc('trade_open', rpcTradeOpen);
+  initializer.registerRpc('trade_add_item', rpcTradeAddItem);
+  initializer.registerRpc('trade_lock', rpcTradeLock);
+  initializer.registerRpc('trade_commit', rpcTradeCommit);
+  initializer.registerRpc('trade_cancel', rpcTradeCancel);
   logger.info('Economy RPCs registered');
 
   // Register social chat RPCs
@@ -106,7 +112,7 @@ function InitModule(
   logger.info('Social guild RPCs registered');
 
   logger.info('=== Runtime Initialization Complete ===');
-  logger.info('Total RPCs registered: 19');
+  logger.info('Total RPCs registered: 24');
 }
 
 // Expose InitModule globally for Nakama to find it
