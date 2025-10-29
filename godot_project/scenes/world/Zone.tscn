@@ -6,7 +6,7 @@
 script = ExtResource("1_zone")
 
 [node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(960, 540)
+position = Vector2(0, 0)
 zoom = Vector2(1, 1)
 
 [node name="Ground" type="ColorRect" parent="."]

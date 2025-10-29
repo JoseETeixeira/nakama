@@ -54,12 +54,16 @@ var is_3d_world: bool = false
 var entity_scenes_2d: Dictionary = {
 	"player": preload("res://scenes/world/entities/Entity2D.tscn"),
 	"npc": preload("res://scenes/world/entities/Entity2D.tscn"),
+	"mob": preload("res://scenes/world/entities/Entity2D.tscn"),
+	"resource": preload("res://scenes/world/entities/Entity2D.tscn"),
 	"item": preload("res://scenes/world/entities/Entity2D.tscn")
 }
 
 var entity_scenes_3d: Dictionary = {
 	"player": preload("res://scenes/world/entities/Entity3D.tscn"),
 	"npc": preload("res://scenes/world/entities/Entity3D.tscn"),
+	"mob": preload("res://scenes/world/entities/Entity3D.tscn"),
+	"resource": preload("res://scenes/world/entities/Entity3D.tscn"),
 	"item": preload("res://scenes/world/entities/Entity3D.tscn")
 }
 
