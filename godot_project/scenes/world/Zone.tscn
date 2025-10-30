@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://be64o33t5twd1"]
+[gd_scene load_steps=3 format=3 uid="uid://be64o33t5twd1"]
 
 [ext_resource type="Script" uid="uid://bjhlj3pvckegk" path="res://scenes/world/Zone.gd" id="1_zone"]
+[ext_resource type="PackedScene" uid="uid://hud_main" path="res://scenes/ui/HUD.tscn" id="2_hud"]
 
 [node name="Zone" type="Node2D"]
 script = ExtResource("1_zone")
@@ -25,3 +26,5 @@ offset_bottom = 26.0
 grow_horizontal = 2
 text = "Zone: Loading..."
 horizontal_alignment = 1
+
+[node name="HUD" parent="UILayer/Control" instance=ExtResource("2_hud")]

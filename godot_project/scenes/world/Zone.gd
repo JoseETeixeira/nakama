@@ -13,6 +13,7 @@
 extends Node2D
 
 @onready var status_label: Label = $UILayer/Control/StatusLabel
+@onready var hud: Control = $UILayer/Control/HUD
 
 
 func _ready() -> void:
@@ -54,6 +55,12 @@ func _on_entity_added(entity_id: String, entity_type: String, entity_node: Node)
 	print("[Zone] Entity added: %s (type: %s)" % [entity_id, entity_type])
 	# Entities are already added to scene tree by WorldState.spawn_entity()
 	# This signal allows for custom logic like attaching shaders, UI health bars, etc.
+
+	# If this is the player entity, connect it to HUD
+	if entity_type == "player" and entity_node.has_method("is_local_player"):
+		if entity_node.is_local_player():
+			hud.set_player_entity(entity_node)
+			print("[Zone] Connected HUD to local player entity")
 
 
 func _process(_delta: float) -> void:

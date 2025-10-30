@@ -1,0 +1,45 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8h3x5j2k9m1n"]
+
+[ext_resource type="Script" path="res://scenes/world/entities/NPCEntity.gd" id="1_npc_entity"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_npc"]
+size = Vector2(32, 32)
+
+[node name="NPCEntity" type="CharacterBody2D"]
+script = ExtResource("1_npc_entity")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_npc")
+
+[node name="Sprite2D" type="ColorRect" parent="."]
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+color = Color(0.8, 0.8, 0.8, 1)
+
+[node name="NameLabel" type="Label" parent="."]
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = -20.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+text = "NPC"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HealthBar" type="ProgressBar" parent="."]
+offset_left = -30.0
+offset_top = 20.0
+offset_right = 30.0
+offset_bottom = 25.0
+theme_override_styles/fill = SubResource("StyleBoxFlat_health_fill")
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_health_fill"]
+bg_color = Color(0.2, 0.8, 0.2, 1)

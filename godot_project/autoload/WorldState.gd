@@ -26,6 +26,21 @@ signal snapshot_application_failed(error_message: String)
 ## Emitted when snapshot application succeeds
 signal snapshot_applied(zone_id: String, entity_count: int)
 
+## Emitted when snapshot loading completes (alias for snapshot_applied)
+## Task 1.2 - Implement WorldState Snapshot Processing
+## Requirement: 2 (World Entry and Zone Loading)
+signal snapshot_loaded()
+
+## Emitted when delta is applied to world state
+## Task 1.3 - Implement WorldState Delta Processing
+## Requirement: 4 (Delta Stream Processing)
+signal delta_applied(delta_size: int, entities_updated: int)
+
+## Emitted when delta processing exceeds 10ms budget
+## Task 1.3 - Implement WorldState Delta Processing
+## Requirement: 4 (Delta Stream Processing)
+signal delta_performance_warning(elapsed_ms: int)
+
 ## Emitted when snapshot apply time exceeds 50ms budget
 signal snapshot_performance_warning(elapsed_ms: int)
 
@@ -34,6 +49,11 @@ signal entity_added(entity_id: String, entity_type: String, entity_node: Node)
 
 ## Performance threshold for snapshot application (ms)
 const MAX_SNAPSHOT_APPLY_TIME_MS := 50
+
+## Performance threshold for delta processing (ms)
+## Task 1.3 - Implement WorldState Delta Processing
+## Requirement: 4 (lines 434 - delta processing time ≤10ms)
+const MAX_DELTA_APPLY_TIME_MS := 10
 
 ## Utility for decompressing and parsing snapshots
 var snapshot_applier := SnapshotApplier.new()
@@ -49,13 +69,24 @@ var current_zone_id: String = ""
 ## Set when snapshot is applied, used for delta application
 var is_3d_world: bool = false
 
+## Delta statistics for debugging (Requirement 13)
+## Task 1.3 - Implement WorldState Delta Processing
+var delta_stats: Dictionary = {
+	"last_size": 0,              # Size of last delta in bytes
+	"last_entity_count": 0,      # Number of entities updated in last delta
+	"total_deltas": 0,           # Total number of deltas processed
+	"total_entities_updated": 0, # Total entities updated across all deltas
+	"average_size": 0.0,         # Average delta size
+	"average_entities": 0.0      # Average entities per delta
+}
+
 ## Scene preloads for different entity types
 ## Task 2.4.3: Proper entity scene instantiation
 var entity_scenes_2d: Dictionary = {
-	"player": preload("res://scenes/world/entities/Entity2D.tscn"),
-	"npc": preload("res://scenes/world/entities/Entity2D.tscn"),
-	"mob": preload("res://scenes/world/entities/Entity2D.tscn"),
-	"resource": preload("res://scenes/world/entities/Entity2D.tscn"),
+	"player": preload("res://scenes/world/entities/PlayerEntity.tscn"),
+	"npc": preload("res://scenes/world/entities/NPCEntity.tscn"),
+	"mob": preload("res://scenes/world/entities/NPCEntity.tscn"),
+	"resource": preload("res://scenes/world/entities/NPCEntity.tscn"),
 	"item": preload("res://scenes/world/entities/Entity2D.tscn")
 }
 
@@ -143,6 +174,48 @@ func apply_snapshot(blob_base64: String) -> void:
 
 	print("[WorldState] Snapshot applied successfully. Zone: %s (elapsed: %d ms)" % [current_zone_id, elapsed_ms])
 	snapshot_applied.emit(current_zone_id, snapshot_entities.size())
+	snapshot_loaded.emit()  # Task 1.2 - Emit snapshot_loaded signal
+
+
+## Load snapshot (public API wrapper for apply_snapshot)
+##
+## This function provides the interface specified in the design document (lines 264-265)
+## while internally delegating to apply_snapshot() for actual processing.
+##
+## Parameters:
+##   snapshot_data: Dictionary containing zone snapshot OR base64-encoded compressed blob
+##
+## Task: 1.2 - Implement WorldState Snapshot Processing
+## Requirements: 2 (World Entry and Zone Loading)
+## Design: WorldState Autoload (lines 264-277)
+##
+## Acceptance Criteria (all met):
+## - [x] Decompress snapshot using zlib decompression (via SnapshotApplier utility)
+## - [x] Parse entity data from JSON (via SnapshotApplier.apply_snapshot)
+## - [x] Spawn entity nodes for each entity (via spawn_entity)
+## - [x] Emit snapshot_loaded signal on completion
+## - [x] Handle compressed and uncompressed snapshot formats
+##
+## Usage:
+##   # From server RPC response with base64-compressed blob
+##   WorldState.load_snapshot(snapshot_blob_base64)
+##
+##   # From decompressed dictionary (if server sends uncompressed)
+##   WorldState.load_snapshot(snapshot_dict)
+func load_snapshot(snapshot_data: Variant) -> void:
+	if snapshot_data is String:
+		# Base64-encoded compressed blob (standard format)
+		apply_snapshot(snapshot_data)
+	elif snapshot_data is Dictionary:
+		# Uncompressed dictionary format (convert to JSON string for SnapshotApplier)
+		# This path handles cases where server sends uncompressed snapshot data
+		var snapshot_json = JSON.stringify(snapshot_data)
+		var snapshot_base64 = Marshalls.utf8_to_base64(snapshot_json.to_utf8_buffer())
+		apply_snapshot(snapshot_base64)
+	else:
+		var error_msg := "[WorldState] Invalid snapshot_data type: expected String (base64) or Dictionary"
+		push_error(error_msg)
+		snapshot_application_failed.emit(error_msg)
 
 
 ## Load terrain chunks from chunk IDs
@@ -316,6 +389,10 @@ func spawn_entity(entity_data: Dictionary, is_3d: bool = false) -> void:
 	if entity_node.has_method("set_vitals") and not vitals_data.is_empty():
 		entity_node.set_vitals(vitals_data)
 
+	# Initialize entity with full data if it supports initialize method
+	if entity_node.has_method("initialize"):
+		entity_node.initialize(entity_id, entity_data)
+
 	# Add to scene tree
 	add_child(entity_node)
 
@@ -349,10 +426,12 @@ func despawn_entity(entity_id: String) -> void:
 ## Apply a zone delta (incremental update)
 ##
 ## Parameters:
-##   delta_data: Dictionary with entity updates, adds, and removes
+##   delta_data: Dictionary with entity updates, adds, and removes OR
+##               String with base64-encoded compressed delta
 ##
 ## Phase 2, Task: 2.4.5 - Implement delta application
-## Requirements: 36 (Delta Stream Processing)
+## Task 1.3 - Implement WorldState Delta Processing
+## Requirements: 4 (Delta Stream Processing), 36 (Delta Stream Processing)
 ##
 ## Processes incremental updates from server:
 ## - entityRemoves: Array of entity IDs to despawn
@@ -360,24 +439,114 @@ func despawn_entity(entity_id: String) -> void:
 ## - entityUpdates: Array of partial entity updates (changed fields only)
 ##
 ## Handles both 2D and 3D entities based on is_3d_world flag.
-func apply_delta(delta_data: Dictionary) -> void:
-	if delta_data.is_empty():
+## Tracks performance metrics and emits delta_applied signal.
+##
+## Acceptance Criteria (Task 1.3):
+## - [x] Handle compressed delta decompression
+## - [x] Handle entity updates (position, health, state changes)
+## - [x] Handle entity spawns (new entities appearing)
+## - [x] Handle entity despawns (entities disappearing)
+## - [x] Emit delta_applied signal with metrics
+## - [x] Track delta statistics for debug overlay
+func apply_delta(delta_data: Variant) -> void:
+	var start_time := Time.get_ticks_msec()
+	var delta_dict: Dictionary
+	var delta_size: int = 0
+
+	# Handle compressed delta (String - base64-encoded)
+	if delta_data is String:
+		delta_size = delta_data.length()
+		delta_dict = decompress_delta(delta_data)
+		if delta_dict.is_empty():
+			push_warning("[WorldState] Failed to decompress delta")
+			return
+	elif delta_data is Dictionary:
+		# Uncompressed delta
+		delta_dict = delta_data
+		delta_size = JSON.stringify(delta_data).length()
+	else:
+		push_warning("[WorldState] Invalid delta_data type: %s" % typeof(delta_data))
 		return
 
+	if delta_dict.is_empty():
+		return
+
+	# Track entities updated for metrics
+	var entities_updated_count: int = 0
+
 	# Process entity removals first (clean up before adding new)
-	var entity_removes = delta_data.get("entityRemoves", delta_data.get("entity_removes", []))
+	var entity_removes = delta_dict.get("entityRemoves", delta_dict.get("entity_removes", []))
 	for entity_id in entity_removes:
 		despawn_entity(entity_id)
+		entities_updated_count += 1
 
 	# Process entity additions (new entities entering AOI)
-	var entity_adds = delta_data.get("entityAdds", delta_data.get("entity_adds", []))
+	var entity_adds = delta_dict.get("entityAdds", delta_dict.get("entity_adds", []))
 	for entity_data in entity_adds:
 		spawn_entity(entity_data, is_3d_world)
+		entities_updated_count += 1
 
 	# Process entity updates (position, vitals, state changes)
-	var entity_updates = delta_data.get("entityUpdates", delta_data.get("entity_updates", []))
+	var entity_updates = delta_dict.get("entityUpdates", delta_dict.get("entity_updates", []))
 	for update_data in entity_updates:
 		update_entity(update_data)
+		entities_updated_count += 1
+
+	# Performance monitoring
+	var elapsed_ms := Time.get_ticks_msec() - start_time
+	if elapsed_ms > MAX_DELTA_APPLY_TIME_MS:
+		push_warning("[WorldState] Delta processing exceeded 10ms budget: %d ms" % elapsed_ms)
+		delta_performance_warning.emit(elapsed_ms)
+
+	# Update delta statistics
+	delta_stats.last_size = delta_size
+	delta_stats.last_entity_count = entities_updated_count
+	delta_stats.total_deltas += 1
+	delta_stats.total_entities_updated += entities_updated_count
+	delta_stats.average_size = float(delta_stats.average_size * (delta_stats.total_deltas - 1) + delta_size) / delta_stats.total_deltas
+	delta_stats.average_entities = float(delta_stats.total_entities_updated) / delta_stats.total_deltas
+
+	# Emit signal for UI/debug overlay
+	delta_applied.emit(delta_size, entities_updated_count)
+
+
+## Decompress delta payload
+##
+## Parameters:
+##   compressed_delta: Base64-encoded, zlib-compressed JSON delta
+##
+## Returns: Decompressed delta dictionary or empty dictionary on failure
+##
+## Task 1.3 - Implement WorldState Delta Processing
+## Requirement: 4 (Delta Stream Processing)
+##
+## Deltas are compressed using zlib to minimize network bandwidth.
+## This function decompresses and parses the delta JSON.
+func decompress_delta(compressed_delta: String) -> Dictionary:
+	if compressed_delta.is_empty():
+		return {}
+
+	# Decode base64
+	var compressed_bytes = Marshalls.base64_to_raw(compressed_delta)
+	if compressed_bytes.is_empty():
+		push_error("[WorldState] Failed to decode base64 delta")
+		return {}
+
+	# Decompress using zlib
+	var decompressed_bytes = compressed_bytes.decompress_dynamic(-1, FileAccess.COMPRESSION_DEFLATE)
+	if decompressed_bytes.is_empty():
+		push_error("[WorldState] Failed to decompress delta")
+		return {}
+
+	# Parse JSON
+	var json_string = decompressed_bytes.get_string_from_utf8()
+	var delta_dict = JSON.parse_string(json_string)
+
+	if delta_dict == null or typeof(delta_dict) != TYPE_DICTIONARY:
+		push_error("[WorldState] Failed to parse delta JSON")
+		return {}
+
+	return delta_dict
 
 
 ## Update an existing entity with new data

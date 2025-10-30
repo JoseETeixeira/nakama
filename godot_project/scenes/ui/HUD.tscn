@@ -1,0 +1,107 @@
+[gd_scene load_steps=2 format=3 uid="uid://hud_main"]
+
+[ext_resource type="Script" path="res://scenes/ui/HUD.gd" id="1_hud"]
+[ext_resource type="PackedScene" uid="uid://ability_button_component" path="res://scenes/ui/components/AbilityButton.tscn" id="2_ability_button"]
+
+[node name="HUD" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_hud")
+
+[node name="BottomPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -100.0
+offset_right = 300.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="BottomPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="VBoxContainer" type="VBoxContainer" parent="BottomPanel/MarginContainer"]
+layout_mode = 2
+
+[node name="AbilityHotbar" type="HBoxContainer" parent="BottomPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="AbilityButton1" parent="BottomPanel/MarginContainer/VBoxContainer/AbilityHotbar" instance=ExtResource("2_ability_button")]
+layout_mode = 2
+
+[node name="AbilityButton2" parent="BottomPanel/MarginContainer/VBoxContainer/AbilityHotbar" instance=ExtResource("2_ability_button")]
+layout_mode = 2
+
+[node name="AbilityButton3" parent="BottomPanel/MarginContainer/VBoxContainer/AbilityHotbar" instance=ExtResource("2_ability_button")]
+layout_mode = 2
+
+[node name="AbilityButton4" parent="BottomPanel/MarginContainer/VBoxContainer/AbilityHotbar" instance=ExtResource("2_ability_button")]
+layout_mode = 2
+
+[node name="AbilityButton5" parent="BottomPanel/MarginContainer/VBoxContainer/AbilityHotbar" instance=ExtResource("2_ability_button")]
+layout_mode = 2
+
+[node name="AbilityButton6" parent="BottomPanel/MarginContainer/VBoxContainer/AbilityHotbar" instance=ExtResource("2_ability_button")]
+layout_mode = 2
+
+[node name="AbilityButton7" parent="BottomPanel/MarginContainer/VBoxContainer/AbilityHotbar" instance=ExtResource("2_ability_button")]
+layout_mode = 2
+
+[node name="AbilityButton8" parent="BottomPanel/MarginContainer/VBoxContainer/AbilityHotbar" instance=ExtResource("2_ability_button")]
+layout_mode = 2
+
+[node name="AbilityButton9" parent="BottomPanel/MarginContainer/VBoxContainer/AbilityHotbar" instance=ExtResource("2_ability_button")]
+layout_mode = 2
+
+[node name="ResourceBar" type="HBoxContainer" parent="BottomPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="HealthBar" type="ProgressBar" parent="BottomPanel/MarginContainer/VBoxContainer/ResourceBar"]
+custom_minimum_size = Vector2(200, 16)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_styles/background = SubResource("StyleBoxFlat_1")
+theme_override_styles/fill = SubResource("StyleBoxFlat_2")
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="ManaBar" type="ProgressBar" parent="BottomPanel/MarginContainer/VBoxContainer/ResourceBar"]
+custom_minimum_size = Vector2(200, 16)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_styles/background = SubResource("StyleBoxFlat_3")
+theme_override_styles/fill = SubResource("StyleBoxFlat_4")
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+bg_color = Color(0.3, 0, 0, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
+bg_color = Color(0.8, 0.1, 0.1, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3"]
+bg_color = Color(0, 0.1, 0.3, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4"]
+bg_color = Color(0.2, 0.4, 1, 1)
