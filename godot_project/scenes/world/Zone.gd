@@ -15,9 +15,21 @@ extends Node2D
 @onready var status_label: Label = $UILayer/Control/StatusLabel
 @onready var hud: Control = $UILayer/Control/HUD
 
+# VFX container for visual effects (damage numbers, projectiles)
+var vfx_container: Node2D
+
 
 func _ready() -> void:
 	print("[Zone] World scene loaded")
+
+	# Create VFX container for visual effects
+	vfx_container = Node2D.new()
+	vfx_container.name = "VFXContainer"
+	add_child(vfx_container)
+
+	# Set VFX container reference in AbilityTargeting
+	if AbilityTargeting:
+		AbilityTargeting.set_vfx_container(vfx_container)
 
 	# Phase 2: World entry and snapshot application already handled by CharacterSelect
 	# CharacterSelect calls:

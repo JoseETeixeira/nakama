@@ -104,6 +104,10 @@ func apply_update(data: Dictionary) -> void:
 	for key in data.keys():
 		entity_data[key] = data[key]
 
+	# Check for death state and spawn loot (Task 5.5)
+	if "state" in data and data.state == "dead":
+		check_and_spawn_loot()
+
 
 # Update health bar display
 func update_health_bar(health: float, max_health: float) -> void:
@@ -241,6 +245,68 @@ func _gather_resource() -> void:
 
 func _generic_interact() -> void:
 	print("Interacting with %s" % entity_data.get("name", entity_id))
+
+
+## Check if this entity is targetable for abilities
+##
+## Task: 4.2 - Implement Ability Targeting System
+## Requirements: 5
+##
+## Returns: true for NPCs, players, mobs (combat targets)
+func is_targetable() -> bool:
+	return entity_type in ["npc", "player", "mob"]
+
+
+## Check and spawn loot container when NPC dies
+##
+## Task: 5.5 - Implement Loot Container System
+## Requirements: 9
+##
+## Called when entity state changes to "dead"
+func check_and_spawn_loot() -> void:
+	# Only spawn loot for mobs/NPCs with templates (not players)
+	if entity_type not in ["npc", "mob"]:
+		return
+
+	# Check if loot already spawned for this death
+	if entity_data.get("loot_spawned", false):
+		return
+
+	# Mark loot as spawned
+	entity_data["loot_spawned"] = true
+
+	# Get NPC template ID for loot generation
+	var npc_template_id = entity_data.get("npc_template_id", entity_data.get("template_id", ""))
+	if npc_template_id.is_empty():
+		print("[NPCEntity] No template ID for loot generation: %s" % entity_id)
+		return
+
+	# Call generate_loot RPC
+	spawn_loot_async(npc_template_id)
+
+
+## Async function to generate and spawn loot
+func spawn_loot_async(npc_template_id: String) -> void:
+	# Call generate_loot RPC via NakamaManager
+	var loot_items = await NakamaManager.generate_loot(npc_template_id)
+
+	if loot_items == null or loot_items.is_empty():
+		print("[NPCEntity] No loot generated for NPC: %s" % npc_template_id)
+		return
+
+	# Spawn loot container at entity position
+	var loot_container_scene = preload("res://scenes/world/entities/LootContainer.tscn")
+	var loot_container = loot_container_scene.instantiate()
+
+	# Get Zone node to add container
+	var zone = get_tree().get_root().get_node_or_null("Zone")
+	if zone:
+		zone.add_child(loot_container)
+		loot_container.initialize(loot_items, global_position, npc_template_id)
+		print("[NPCEntity] Spawned loot container with %d items at %s" % [loot_items.size(), global_position])
+	else:
+		print("[NPCEntity] Error: Zone node not found, cannot spawn loot")
+		loot_container.queue_free()
 
 
 # Called when entity should be removed from world (Requirement 4)

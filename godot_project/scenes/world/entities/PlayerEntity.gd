@@ -54,6 +54,12 @@ var server_position: Vector2 = Vector2.ZERO
 var move_intent_cooldown: float = 0.0
 const MOVE_INTENT_INTERVAL: float = 0.05  # Send move_intent every 50ms max
 
+## Character data from server (for abilities, name, etc.)
+var character_data: Dictionary = {}
+
+# Signals
+signal ability_cooldown_started(ability_id: String, cooldown_duration: float)
+
 ## References to UI nodes
 @onready var sprite: Sprite2D = $Sprite2D
 @onready var health_bar: ProgressBar = $HealthBar
@@ -149,16 +155,16 @@ func handle_ability_input() -> void:
 ## Use an ability
 ##
 ## Parameters:
-##   ability_id: Ability slot ID (1-9)
+##   ability_id: Ability slot ID (1-9) or ability template ID
 ##   target_id: Target entity ID (empty for self-cast or ground-target)
 ##
-## Task: 3.2 - Create PlayerEntity Scene
+## Task: 3.2 - Create PlayerEntity Scene, Task 4.2 - Targeting System
 ## Requirements: 5
 ## Design: PlayerEntity (lines 360-365)
 ##
-## Calls use_ability RPC and handles cooldown/animation on response.
-func use_ability(ability_id: String, target_id: String) -> void:
-	print("[PlayerEntity] Using ability: ", ability_id)
+## Calls use_ability RPC and handles cooldown/animation/visual effects on response.
+func use_ability(ability_id: String, target_id: String = "") -> void:
+	print("[PlayerEntity] Using ability: %s on target: %s" % [ability_id, target_id])
 
 	# Call RPC (returns result with success, cooldown, damage, etc.)
 	var result = await NakamaManager.use_ability(ability_id, target_id, global_position)
@@ -178,6 +184,16 @@ func use_ability(ability_id: String, target_id: String) -> void:
 		var cooldown = result.get("cooldown", 0.0)
 		if cooldown > 0:
 			start_ability_cooldown(ability_id, cooldown)
+
+		# Handle visual effects via AbilityTargeting
+		if AbilityTargeting:
+			AbilityTargeting.handle_ability_result(result, global_position)
+	else:
+		var error = result.get("error", "Unknown error")
+		print("[PlayerEntity] Ability failed: ", error)
+		# Show error message to player
+		if UIManager:
+			UIManager.show_floating_text(error, global_position, Color.RED)
 	else:
 		var error = result.get("error", "Unknown error")
 		print("[PlayerEntity] Ability failed: ", error)
@@ -200,10 +216,13 @@ func play_ability_animation(ability_id: String) -> void:
 ##   ability_id: Ability ID for cooldown tracking
 ##   cooldown: Cooldown duration in seconds
 ##
-## Placeholder function for cooldown tracking.
+## Task: 4.1 - Ability Hotbar, Task 4.2 - Targeting System
+## Requirements: 5
+##
+## Emits signal for HUD to update cooldown visuals.
 func start_ability_cooldown(ability_id: String, cooldown: float) -> void:
-	# TODO: Implement cooldown tracking and UI update
 	print("[PlayerEntity] Starting cooldown for ability %s: %f seconds" % [ability_id, cooldown])
+	ability_cooldown_started.emit(ability_id, cooldown)
 
 
 ## ============================================================================
@@ -323,6 +342,24 @@ func update_name_label() -> void:
 
 	var character_name = entity_data.get("name", "Player")
 	name_label.text = character_name
+
+
+## Check if this entity is targetable for abilities
+##
+## Task: 4.2 - Implement Ability Targeting System
+## Requirements: 5
+##
+## Returns: true (players can be targeted by abilities)
+func is_targetable() -> bool:
+	return true
+
+
+## Check if this is the local player
+##
+## Returns: true if this is the local player entity
+func is_local_player() -> bool:
+	# Local player has input handling enabled
+	return true
 
 
 ## ============================================================================

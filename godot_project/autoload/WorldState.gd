@@ -47,6 +47,11 @@ signal snapshot_performance_warning(elapsed_ms: int)
 ## Emitted when an entity is added to allow custom scene instantiation (Requirement 33, line 716)
 signal entity_added(entity_id: String, entity_type: String, entity_node: Node)
 
+## Emitted when player inventory is updated from server
+## Task 5.1 - Create Inventory Panel UI
+## Requirement: 6 (Inventory Management)
+signal inventory_updated()
+
 ## Performance threshold for snapshot application (ms)
 const MAX_SNAPSHOT_APPLY_TIME_MS := 50
 
@@ -68,6 +73,12 @@ var current_zone_id: String = ""
 ## Whether the current zone is 3D (true) or 2D (false)
 ## Set when snapshot is applied, used for delta application
 var is_3d_world: bool = false
+
+## Player inventory items
+## Task 5.1 - Create Inventory Panel UI
+## Requirement: 6 (Inventory Management)
+## Format: Array of Dictionaries with {id, template_id, name, icon, rarity, slot_index, stack_count, stats, description}
+var player_inventory: Array = []
 
 ## Delta statistics for debugging (Requirement 13)
 ## Task 1.3 - Implement WorldState Delta Processing

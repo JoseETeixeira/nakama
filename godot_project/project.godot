@@ -22,6 +22,7 @@ Nakama="*res://addons/com.heroiclabs.nakama/Nakama.gd"
 NakamaManager="*res://autoload/NakamaManager.gd"
 WorldState="*res://autoload/WorldState.gd"
 UIManager="*res://autoload/UIManager.gd"
+AbilityTargeting="*res://autoload/AbilityTargeting.gd"
 
 [display]
 

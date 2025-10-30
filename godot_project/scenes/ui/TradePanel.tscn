@@ -1,0 +1,126 @@
+[gd_scene load_steps=2 format=3 uid="uid://trade_panel"]
+
+[ext_resource type="Script" path="res://scenes/ui/TradePanel.gd" id="1_trade"]
+
+[node name="TradePanel" type="Panel"]
+custom_minimum_size = Vector2(800, 500)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -250.0
+offset_right = 400.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_trade")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="MarginContainer/VBoxContainer/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "Trade"
+
+[node name="CloseButton" type="Button" parent="MarginContainer/VBoxContainer/Header"]
+layout_mode = 2
+text = "X"
+
+[node name="TradeContent" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="MyTradeArea" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TradeContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="MyLabel" type="Label" parent="MarginContainer/VBoxContainer/TradeContent/MyTradeArea"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "My Offer"
+horizontal_alignment = 1
+
+[node name="MyItemGrid" type="GridContainer" parent="MarginContainer/VBoxContainer/TradeContent/MyTradeArea"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 5
+
+[node name="MyStatusLabel" type="Label" parent="MarginContainer/VBoxContainer/TradeContent/MyTradeArea"]
+layout_mode = 2
+text = "Not Locked"
+horizontal_alignment = 1
+
+[node name="Divider" type="VSeparator" parent="MarginContainer/VBoxContainer/TradeContent"]
+layout_mode = 2
+
+[node name="TheirTradeArea" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TradeContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="TheirLabel" type="Label" parent="MarginContainer/VBoxContainer/TradeContent/TheirTradeArea"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Their Offer"
+horizontal_alignment = 1
+
+[node name="TheirItemGrid" type="GridContainer" parent="MarginContainer/VBoxContainer/TradeContent/TheirTradeArea"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 5
+
+[node name="TheirStatusLabel" type="Label" parent="MarginContainer/VBoxContainer/TradeContent/TheirTradeArea"]
+layout_mode = 2
+text = "Not Locked"
+horizontal_alignment = 1
+
+[node name="ButtonContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CancelButton" type="Button" parent="MarginContainer/VBoxContainer/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cancel"
+
+[node name="LockButton" type="Button" parent="MarginContainer/VBoxContainer/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Lock"
+
+[node name="CommitButton" type="Button" parent="MarginContainer/VBoxContainer/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+disabled = true
+text = "Commit"
+
+[connection signal="pressed" from="MarginContainer/VBoxContainer/Header/CloseButton" to="." method="_on_close_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ButtonContainer/CancelButton" to="." method="_on_cancel_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ButtonContainer/LockButton" to="." method="_on_lock_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ButtonContainer/CommitButton" to="." method="_on_commit_button_pressed"]

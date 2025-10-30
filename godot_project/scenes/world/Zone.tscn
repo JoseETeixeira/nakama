@@ -1,7 +1,11 @@
-[gd_scene load_steps=3 format=3 uid="uid://be64o33t5twd1"]
+[gd_scene load_steps=7 format=3 uid="uid://be64o33t5twd1"]
 
 [ext_resource type="Script" uid="uid://bjhlj3pvckegk" path="res://scenes/world/Zone.gd" id="1_zone"]
 [ext_resource type="PackedScene" uid="uid://hud_main" path="res://scenes/ui/HUD.tscn" id="2_hud"]
+[ext_resource type="PackedScene" uid="uid://inventory_panel" path="res://scenes/ui/InventoryPanel.tscn" id="3_inventory"]
+[ext_resource type="PackedScene" uid="uid://trade_panel" path="res://scenes/ui/TradePanel.tscn" id="4_trade"]
+[ext_resource type="PackedScene" uid="uid://vendor_panel" path="res://scenes/ui/VendorPanel.tscn" id="5_vendor"]
+[ext_resource type="PackedScene" uid="uid://loot_panel" path="res://scenes/ui/LootPanel.tscn" id="6_loot"]
 
 [node name="Zone" type="Node2D"]
 script = ExtResource("1_zone")
@@ -28,3 +32,15 @@ text = "Zone: Loading..."
 horizontal_alignment = 1
 
 [node name="HUD" parent="UILayer/Control" instance=ExtResource("2_hud")]
+
+[node name="InventoryPanel" parent="UILayer/Control" instance=ExtResource("3_inventory")]
+visible = false
+
+[node name="TradePanel" parent="UILayer/Control" instance=ExtResource("4_trade")]
+visible = false
+
+[node name="VendorPanel" parent="UILayer/Control" instance=ExtResource("5_vendor")]
+visible = false
+
+[node name="LootPanel" parent="UILayer/Control" instance=ExtResource("6_loot")]
+visible = false

@@ -51,7 +51,7 @@ func _load_player_abilities() -> void:
 			ability_buttons[i].set_ability(ability_data)
 
 func _on_ability_button_clicked(slot_index: int) -> void:
-	"""Forward ability button clicks to PlayerEntity"""
+	"""Forward ability button clicks to PlayerEntity or AbilityTargeting"""
 	if not player_entity:
 		return
 
@@ -67,13 +67,22 @@ func _on_ability_button_clicked(slot_index: int) -> void:
 	# Check mana cost
 	var mana_cost = button.ability_data.get("mana_cost", 0)
 	if current_mana < mana_cost:
-		UIManager.show_floating_text("Not enough mana!", player_entity.global_position, Color.CYAN)
+		if UIManager and UIManager.has_method("show_floating_text"):
+			UIManager.show_floating_text("Not enough mana!", player_entity.global_position, Color.CYAN)
 		return
 
-	# Forward to PlayerEntity to send use_ability RPC
 	var ability_id = button.ability_data.get("id", "")
+
+	# Check if ability requires targeting
+	if AbilityTargeting:
+		var needs_targeting = AbilityTargeting.start_targeting(ability_id, button.ability_data, player_entity)
+		if needs_targeting:
+			# Targeting system will handle the ability execution
+			return
+
+	# No targeting needed, use ability immediately
 	if player_entity.has_method("use_ability"):
-		player_entity.use_ability(ability_id)
+		player_entity.use_ability(ability_id, "")
 
 func _on_ability_cooldown_started(ability_id: String, cooldown_duration: float) -> void:
 	"""Handle cooldown start signal from PlayerEntity"""
