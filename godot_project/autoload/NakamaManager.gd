@@ -45,6 +45,10 @@ var network_metrics: Dictionary = {
 var _delta_intervals: Array[float] = []
 var _max_delta_intervals: int = 20  # Keep last 20 intervals for averaging
 
+## Network logging toggle (Task 8.2 - Requirement 13)
+## Press F4 to enable/disable detailed network logging to console
+var network_logging_enabled: bool = false
+
 ## Server configuration (loaded from project settings)
 ## Task 1.4.2 - Configured via Project Settings -> Nakama
 var server_key: String
@@ -66,6 +70,86 @@ func _ready() -> void:
 
 	client = Nakama.create_client(server_key, server_host, server_port, server_protocol)
 	print("[NakamaManager] Nakama client initialized")
+
+
+## Process loop for F4 network logging toggle
+## Task 8.2: Implement Network Logging (Requirement 13)
+func _process(_delta: float) -> void:
+	# F4 toggle for network logging
+	if Input.is_action_just_pressed("ui_f4"):
+		network_logging_enabled = not network_logging_enabled
+		var status = "ENABLED" if network_logging_enabled else "DISABLED"
+		print("\n========================================")
+		print("[NakamaManager] Network Logging %s" % status)
+		print("========================================\n")
+
+
+## Log network activity to console with timestamp
+## Task 8.2: Network logging helper function
+##
+## Parameters:
+##   category: Log category (RPC, DELTA, etc.)
+##   message: Log message
+##   payload: Optional payload data to log
+func _log_network(category: String, message: String, payload: Variant = null) -> void:
+	if not network_logging_enabled:
+		return
+	
+	var timestamp = Time.get_time_string_from_system()
+	var log_msg = "[%s] [%s] %s" % [timestamp, category, message]
+	
+	print(log_msg)
+	
+	if payload != null:
+		if payload is String:
+			print("  Payload: %s" % payload)
+		elif payload is Dictionary or payload is Array:
+			print("  Payload: %s" % JSON.stringify(payload, "  "))
+		else:
+			print("  Payload: %s" % str(payload))
+
+
+## Wrapper for RPC calls with automatic logging
+## Task 8.2: Network logging for RPCs
+##
+## Parameters:
+##   rpc_name: Name of the RPC function
+##   payload: JSON payload string or Dictionary
+##
+## Returns: Parsed response data or null on error
+func _rpc_with_logging(rpc_name: String, payload: Variant) -> Variant:
+	if session == null:
+		push_error("[NakamaManager] Cannot call RPC %s: not authenticated" % rpc_name)
+		return null
+	
+	# Convert payload to string if needed
+	var payload_str: String = ""
+	if payload is String:
+		payload_str = payload
+	elif payload is Dictionary:
+		payload_str = JSON.stringify(payload)
+	else:
+		payload_str = str(payload)
+	
+	# Log request
+	_log_network("RPC", "%s -> Request" % rpc_name, payload_str)
+	
+	# Make RPC call
+	var response = await client.rpc_async(session, rpc_name, payload_str)
+	
+	# Check for exception
+	if response.is_exception():
+		var error_msg = response.get_exception().message
+		_log_network("RPC", "%s -> Error: %s" % [rpc_name, error_msg])
+		return null
+	
+	# Parse response
+	var data = JSON.parse_string(response.payload)
+	
+	# Log response
+	_log_network("RPC", "%s -> Response" % rpc_name, data)
+	
+	return data
 
 
 ## Authenticate using device ID (auto-registration)
@@ -110,14 +194,23 @@ func list_characters() -> Array:
 		return []
 
 	print("[NakamaManager] Listing characters...")
+	
+	# Log RPC call (Task 8.2)
+	_log_network("RPC", "list_characters -> Request", "{}")
+	
 	var response = await client.rpc_async(session, "list_characters", "{}")
 
 	if response.is_exception():
-		push_error("[NakamaManager] list_characters RPC failed: ", response.get_exception().message)
+		var error_msg = response.get_exception().message
+		_log_network("RPC", "list_characters -> Error: %s" % error_msg)
+		push_error("[NakamaManager] list_characters RPC failed: ", error_msg)
 		return []
 
 	var data = JSON.parse_string(response.payload)
 	var characters = data.get("characters", [])
+
+	# Log RPC response (Task 8.2)
+	_log_network("RPC", "list_characters -> Response: %d character(s)" % characters.size(), data)
 
 	print("[NakamaManager] Found %d character(s)" % characters.size())
 	return characters
@@ -145,15 +238,22 @@ func create_character(character_name: String, archetype_id: String) -> String:
 		"archetype_id": archetype_id
 	})
 
+	# Log RPC call (Task 8.2)
+	_log_network("RPC", "create_character -> Request", payload)
+
 	var response = await client.rpc_async(session, "create_character", payload)
 
 	if response.is_exception():
 		var error_message = response.get_exception().message
+		_log_network("RPC", "create_character -> Error: %s" % error_message)
 		push_error("[NakamaManager] create_character RPC failed: ", error_message)
 		return ""
 
 	var data = JSON.parse_string(response.payload)
 	var character_id = data.get("character_id", "")
+
+	# Log RPC response (Task 8.2)
+	_log_network("RPC", "create_character -> Response: character_id=%s" % character_id, data)
 
 	print("[NakamaManager] Character created successfully. ID: ", character_id)
 	return character_id
@@ -179,19 +279,29 @@ func select_character(character_id: String) -> Dictionary:
 		"character_id": character_id
 	})
 
+	# Log RPC call (Task 8.2)
+	_log_network("RPC", "select_character -> Request", payload)
+
 	var response = await client.rpc_async(session, "select_character", payload)
 
 	if response.is_exception():
-		push_error("[NakamaManager] select_character RPC failed: ", response.get_exception().message)
+		var error_msg = response.get_exception().message
+		_log_network("RPC", "select_character -> Error: %s" % error_msg)
+		push_error("[NakamaManager] select_character RPC failed: ", error_msg)
 		return {}
 
 	var data = JSON.parse_string(response.payload)
 
 	if not data.get("ok", false):
+		_log_network("RPC", "select_character -> Error: ok=false", data)
 		push_error("[NakamaManager] select_character returned ok=false")
 		return {}
 
 	var character = data.get("character", {})
+	
+	# Log RPC response (Task 8.2)
+	_log_network("RPC", "select_character -> Response: %s" % character.get("name", "Unknown"), data)
+	
 	print("[NakamaManager] Character selected: ", character.get("name", "Unknown"))
 	return character
 
@@ -426,6 +536,14 @@ func _on_zone_delta_match(match_state: NakamaRTAPI.MatchData) -> void:
 	if delta_data == null or typeof(delta_data) != TYPE_DICTIONARY:
 		push_warning("[NakamaManager] Invalid delta data received from match")
 		return
+
+	# Log delta message (Task 8.2)
+	var entity_count = 0
+	if "entities" in delta_data:
+		entity_count = delta_data.entities.size()
+	_log_network("DELTA", "Received delta: %d bytes, %d entities, interval: %.3fs" % [
+		delta_size, entity_count, network_metrics.average_delta_interval
+	], delta_data)
 
 	# Apply delta to world state (Task 2.4.5)
 	WorldState.apply_delta(delta_data)

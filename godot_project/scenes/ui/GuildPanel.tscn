@@ -1,0 +1,244 @@
+[gd_scene load_steps=2 format=3 uid="uid://guild_panel_1"]
+
+[ext_resource type="Script" path="res://scenes/ui/GuildPanel.gd" id="1_guild"]
+
+[node name="GuildPanel" type="Panel"]
+custom_minimum_size = Vector2(600, 500)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -250.0
+offset_right = 300.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_guild")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="MarginContainer/VBoxContainer/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Guild"
+theme_override_font_sizes/font_size = 18
+
+[node name="CloseButton" type="Button" parent="MarginContainer/VBoxContainer/Header"]
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+text = "Close"
+
+[node name="NoGuildContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CenterContainer" type="CenterContainer" parent="MarginContainer/VBoxContainer/NoGuildContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/NoGuildContainer/CenterContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/NoGuildContainer/CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "You are not in a guild"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="MarginContainer/VBoxContainer/NoGuildContainer/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="CreateGuildButton" type="Button" parent="MarginContainer/VBoxContainer/NoGuildContainer/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+text = "Create Guild"
+
+[node name="CreateGuildDialog" type="VBoxContainer" parent="MarginContainer/VBoxContainer/NoGuildContainer"]
+visible = false
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog"]
+layout_mode = 2
+text = "Create New Guild"
+horizontal_alignment = 1
+
+[node name="NameLabel" type="Label" parent="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog"]
+layout_mode = 2
+text = "Guild Name:"
+
+[node name="GuildNameInput" type="LineEdit" parent="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog"]
+layout_mode = 2
+placeholder_text = "Enter guild name..."
+
+[node name="TagLabel" type="Label" parent="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog"]
+layout_mode = 2
+text = "Guild Tag (3-5 characters):"
+
+[node name="GuildTagInput" type="LineEdit" parent="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog"]
+layout_mode = 2
+max_length = 5
+placeholder_text = "TAG"
+
+[node name="ButtonContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog"]
+layout_mode = 2
+
+[node name="CancelButton" type="Button" parent="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cancel"
+
+[node name="ConfirmButton" type="Button" parent="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Create"
+
+[node name="TabContainer" type="TabContainer" parent="MarginContainer/VBoxContainer"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Info" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
+layout_mode = 2
+metadata/_tab_index = 0
+
+[node name="GuildNameLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/Info"]
+layout_mode = 2
+text = "Guild Name: [Name]"
+theme_override_font_sizes/font_size = 14
+
+[node name="GuildTagLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/Info"]
+layout_mode = 2
+text = "Tag: [TAG]"
+
+[node name="Spacer1" type="Control" parent="MarginContainer/VBoxContainer/TabContainer/Info"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="MOTDLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/Info"]
+layout_mode = 2
+text = "Message of the Day"
+theme_override_font_sizes/font_size = 12
+
+[node name="MOTDDisplay" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/Info"]
+layout_mode = 2
+text = "Welcome to the guild!"
+autowrap_mode = 3
+
+[node name="Spacer2" type="Control" parent="MarginContainer/VBoxContainer/TabContainer/Info"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="EditMOTDLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/Info"]
+visible = false
+layout_mode = 2
+text = "Edit MOTD (Officers only):"
+
+[node name="MOTDInput" type="TextEdit" parent="MarginContainer/VBoxContainer/TabContainer/Info"]
+visible = false
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+
+[node name="SaveMOTDButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/Info"]
+visible = false
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+text = "Save MOTD"
+
+[node name="Roster" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 1
+
+[node name="HeaderContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/Roster"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/Roster/HeaderContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Guild Members"
+
+[node name="InviteButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/Roster/HeaderContainer"]
+visible = false
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+text = "Invite"
+
+[node name="InviteDialog" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/Roster"]
+visible = false
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/Roster/InviteDialog"]
+layout_mode = 2
+text = "Player ID:"
+
+[node name="PlayerIDInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/Roster/InviteDialog"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Enter player ID..."
+
+[node name="SendInviteButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/Roster/InviteDialog"]
+layout_mode = 2
+text = "Send"
+
+[node name="CancelInviteButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/Roster/InviteDialog"]
+layout_mode = 2
+text = "Cancel"
+
+[node name="RosterScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/Roster"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="RosterList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/Roster/RosterScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Storage" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/Storage"]
+layout_mode = 2
+text = "Guild Storage"
+
+[node name="InfoLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/Storage"]
+layout_mode = 2
+text = "Drag items from inventory to deposit, click items to withdraw"
+
+[node name="StorageScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/Storage"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="StorageGrid" type="GridContainer" parent="MarginContainer/VBoxContainer/TabContainer/Storage/StorageScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 5
+
+[connection signal="pressed" from="MarginContainer/VBoxContainer/Header/CloseButton" to="." method="_on_close_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/NoGuildContainer/CenterContainer/VBoxContainer/CreateGuildButton" to="." method="_on_create_guild_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog/ButtonContainer/CancelButton" to="." method="_on_create_cancel_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/NoGuildContainer/CreateGuildDialog/ButtonContainer/ConfirmButton" to="." method="_on_create_confirm_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/TabContainer/Info/SaveMOTDButton" to="." method="_on_save_motd_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/TabContainer/Roster/HeaderContainer/InviteButton" to="." method="_on_invite_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/TabContainer/Roster/InviteDialog/SendInviteButton" to="." method="_on_send_invite_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/TabContainer/Roster/InviteDialog/CancelInviteButton" to="." method="_on_cancel_invite_button_pressed"]

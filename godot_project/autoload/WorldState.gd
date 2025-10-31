@@ -91,6 +91,18 @@ var delta_stats: Dictionary = {
 	"average_entities": 0.0      # Average entities per delta
 }
 
+## Performance profiling statistics (Task 8.3 - Requirement 13)
+var performance_stats: Dictionary = {
+	"last_delta_time_ms": 0.0,        # Last delta processing time in milliseconds
+	"last_entity_update_time_ms": 0.0, # Last entity update loop time in milliseconds
+	"max_delta_time_ms": 0.0,         # Maximum delta processing time recorded
+	"max_entity_update_time_ms": 0.0, # Maximum entity update time recorded
+	"total_delta_time_ms": 0.0,       # Total time spent in delta processing
+	"total_entity_update_time_ms": 0.0, # Total time spent in entity updates
+	"delta_count": 0,                 # Number of deltas processed
+	"entity_update_count": 0          # Number of entity updates processed
+}
+
 ## Scene preloads for different entity types
 ## Task 2.4.3: Proper entity scene instantiation
 var entity_scenes_2d: Dictionary = {
@@ -509,6 +521,13 @@ func apply_delta(delta_data: Variant) -> void:
 		push_warning("[WorldState] Delta processing exceeded 10ms budget: %d ms" % elapsed_ms)
 		delta_performance_warning.emit(elapsed_ms)
 
+	# Update performance profiling stats (Task 8.3)
+	performance_stats.last_delta_time_ms = elapsed_ms
+	performance_stats.delta_count += 1
+	performance_stats.total_delta_time_ms += elapsed_ms
+	if elapsed_ms > performance_stats.max_delta_time_ms:
+		performance_stats.max_delta_time_ms = elapsed_ms
+
 	# Update delta statistics
 	delta_stats.last_size = delta_size
 	delta_stats.last_entity_count = entities_updated_count
@@ -577,6 +596,8 @@ func decompress_delta(compressed_delta: String) -> Dictionary:
 ## - Vitals fields: health, maxHealth, mana, maxMana (individual)
 ## - State: arbitrary entity state dictionary
 func update_entity(update_data: Dictionary) -> void:
+	var start_time := Time.get_ticks_usec()  # Use microseconds for finer granularity
+	
 	var entity_id = update_data.get("entityId", update_data.get("entity_id", ""))
 
 	if entity_id.is_empty():
@@ -604,6 +625,15 @@ func update_entity(update_data: Dictionary) -> void:
 		entity_node.apply_update(update_data)
 	else:
 		push_warning("[WorldState] Entity %s does not have apply_update method" % entity_id)
+	
+	# Track performance (Task 8.3)
+	var elapsed_us := Time.get_ticks_usec() - start_time
+	var elapsed_ms := elapsed_us / 1000.0
+	performance_stats.last_entity_update_time_ms = elapsed_ms
+	performance_stats.entity_update_count += 1
+	performance_stats.total_entity_update_time_ms += elapsed_ms
+	if elapsed_ms > performance_stats.max_entity_update_time_ms:
+		performance_stats.max_entity_update_time_ms = elapsed_ms
 
 
 ## Get entity node by ID

@@ -1,0 +1,99 @@
+[gd_scene load_steps=2 format=3 uid="uid://deb4ugov3rlay"]
+
+[ext_resource type="Script" path="res://scripts/ui/DebugOverlay.gd" id="1_1"]
+
+[node name="DebugOverlay" type="CanvasLayer"]
+layer = 100
+script = ExtResource("1_1")
+
+[node name="Panel" type="Panel" parent="."]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 410.0
+offset_bottom = 510.0
+
+[node name="MarginContainer" type="MarginContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="TitleLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Debug Overlay (F3 to toggle)"
+
+[node name="Separator1" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="FPSLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "FPS: 0"
+
+[node name="LatencyLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Latency: 0 ms"
+
+[node name="TickRateLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Server Tick Rate: 0 Hz"
+
+[node name="Separator2" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="EntityCountLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Entities: 0"
+
+[node name="DeltaStatsLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Delta: 0 bytes, 0 entities, 0.00x compression"
+
+[node name="SpawnEventsLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Spawn/Despawn: 0/0"
+
+[node name="Separator3" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="MemoryLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Memory: 0 MB"
+
+[node name="PerformanceLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Delta: 0.0ms | Entity: 0.0ms"
+
+[node name="WarningLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.5, 0, 1)
+text = ""
+
+[node name="Separator4" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="NetworkLogLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Network Log (Last 50):"
+
+[node name="NetworkLogScroll" type="ScrollContainer" parent="Panel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="NetworkLogText" type="Label" parent="Panel/MarginContainer/VBoxContainer/NetworkLogScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "No network activity yet..."
+autowrap_mode = 3

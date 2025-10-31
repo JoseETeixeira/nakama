@@ -20,8 +20,16 @@ var interpolation_speed: float = 200.0  # Pixels per second (matches MOVE_SPEED 
 @onready var health_bar: ProgressBar = $HealthBar
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
+# Visual indicator icons (Requirement 12 - Task 7.2)
+@onready var vendor_icon: ColorRect = $VendorIcon
+@onready var quest_icon: ColorRect = $QuestIcon
+@onready var aggro_icon: ColorRect = $AggroIcon
+
 # Input detection for click interactions
 var is_clickable: bool = true  # NPCs/players can be clicked, resources may not
+
+# Animation state for pulsing icons
+var icon_pulse_time: float = 0.0
 
 
 func _ready() -> void:
@@ -42,6 +50,9 @@ func _process(delta: float) -> void:
 	if global_position.distance_to(target_position) > 1.0:
 		# Use move_toward for smooth interpolation as specified in design.md
 		global_position = global_position.move_toward(target_position, interpolation_speed * delta)
+
+	# Animate icon pulsing effect (Task 7.2)
+	animate_icons(delta)
 
 
 # Called by WorldState.spawn_entity() during entity initialization
@@ -75,6 +86,9 @@ func initialize(id: String, data: Dictionary) -> void:
 	# Set clickable based on entity type
 	is_clickable = entity_type in ["npc", "player", "mob"]
 
+	# Update visual indicators (Task 7.2)
+	update_indicators()
+
 
 # Called by WorldState.update_entity() when delta updates arrive (Requirement 4)
 func apply_update(data: Dictionary) -> void:
@@ -103,6 +117,10 @@ func apply_update(data: Dictionary) -> void:
 	# Update cached entity data
 	for key in data.keys():
 		entity_data[key] = data[key]
+
+	# Update visual indicators if capabilities changed (Task 7.2)
+	if "is_vendor" in data or "has_quest" in data or "is_enemy" in data or "state" in data:
+		update_indicators()
 
 	# Check for death state and spawn loot (Task 5.5)
 	if "state" in data and data.state == "dead":
@@ -143,6 +161,56 @@ func update_animation_state(state: String) -> void:
 				sprite.color = Color(0.8, 0.8, 0.8)
 
 
+## Update visual indicators based on entity capabilities
+##
+## Task: 7.2 - Add NPC Visual Indicators
+## Requirements: 12
+##
+## Shows/hides icons above NPC based on entity_data flags:
+## - Vendor icon (gold $) for is_vendor = true
+## - Quest icon (blue !) for has_quest = true
+## - Aggro icon (red ⚔) for is_enemy = true or entity in combat state
+func update_indicators() -> void:
+	if not vendor_icon or not quest_icon or not aggro_icon:
+		return
+
+	# Vendor icon: Show if entity is a vendor
+	var is_vendor = entity_data.get("is_vendor", false)
+	vendor_icon.visible = is_vendor
+
+	# Quest icon: Show if entity has quest available
+	var has_quest = entity_data.get("has_quest", false)
+	quest_icon.visible = has_quest and not is_vendor  # Don't show quest icon if vendor icon is showing
+
+	# Aggro icon: Show if entity is enemy or in attacking state
+	var is_enemy = entity_data.get("is_enemy", false) or entity_type == "mob"
+	var is_attacking = entity_data.get("state", "") == "attacking"
+	aggro_icon.visible = (is_enemy or is_attacking) and not is_vendor and not has_quest  # Priority: vendor > quest > aggro
+
+
+## Animate icon pulsing effect
+##
+## Task: 7.2 - Add NPC Visual Indicators
+## Requirements: 12
+##
+## Creates subtle pulsing animation on visible icons for visual appeal
+func animate_icons(delta: float) -> void:
+	icon_pulse_time += delta * 2.0  # Pulse speed
+
+	# Calculate pulse scale (1.0 to 1.2)
+	var pulse_scale = 1.0 + (sin(icon_pulse_time) * 0.1)
+
+	# Apply pulse to visible icons
+	if vendor_icon and vendor_icon.visible:
+		vendor_icon.scale = Vector2(pulse_scale, pulse_scale)
+
+	if quest_icon and quest_icon.visible:
+		quest_icon.scale = Vector2(pulse_scale, pulse_scale)
+
+	if aggro_icon and aggro_icon.visible:
+		aggro_icon.scale = Vector2(pulse_scale, pulse_scale)
+
+
 # Handle click input for NPC interaction (Requirement 12)
 func _input_event(viewport: Viewport, event: InputEvent, shape_idx: int) -> void:
 	if not is_clickable:
@@ -168,25 +236,19 @@ func show_interaction_menu() -> void:
 	if entity_type == "player":
 		menu_items.append("Trade")
 		menu_items.append("Inspect")
-		menu_items.append("Add Friend")
 
-	if entity_type == "mob":
+	if entity_type == "mob" or entity_data.get("is_enemy", false):
 		menu_items.append("Attack")
-
-	if entity_type == "resource":
-		menu_items.append("Gather")
 
 	# Default interaction if no specific options
 	if menu_items.is_empty():
-		menu_items.append("Interact")
+		menu_items.append("Talk")
 
-	# Trigger context menu via UIManager
-	# UIManager will handle menu display and callback routing
-	# For now, print debug message (context menu UI will be implemented in later tasks)
-	print("NPCEntity interaction menu for %s (%s): %s" % [entity_data.get("name", entity_id), entity_type, menu_items])
+	# Get mouse position for context menu placement
+	var mouse_pos = get_viewport().get_mouse_position()
 
-	# TODO: Task 6.4 will implement actual context menu UI via UIManager
-	# UIManager.show_context_menu(global_position, menu_items, self, "_on_menu_item_selected")
+	# Show context menu via UIManager
+	UIManager.show_context_menu(menu_items, self, mouse_pos, self, "_on_menu_item_selected")
 
 
 # Handle context menu selection
@@ -195,56 +257,89 @@ func _on_menu_item_selected(item: String) -> void:
 		"Trade":
 			_open_vendor_or_trade()
 		"Talk":
-			_open_quest_dialog()
+			_open_dialogue()
 		"Inspect":
 			_inspect_player()
-		"Add Friend":
-			_send_friend_request()
 		"Attack":
 			_target_for_combat()
-		"Gather":
-			_gather_resource()
-		"Interact":
-			_generic_interact()
 
 
-# Interaction handlers (placeholders for future task implementation)
+# Interaction handlers
 func _open_vendor_or_trade() -> void:
 	if entity_data.get("is_vendor", false):
-		print("Opening vendor UI for %s" % entity_data.get("name", entity_id))
-		# TODO: Task 5.4 - VendorPanel integration
+		print("[NPCEntity] Opening vendor UI for %s" % entity_data.get("name", entity_id))
+
+		# Get vendor ID from entity data
+		var vendor_id = entity_data.get("vendor_id", entity_id)
+
+		# Open VendorPanel
+		var vendor_panel = get_tree().get_root().get_node_or_null("Zone/UILayer/Control/VendorPanel")
+		if vendor_panel:
+			vendor_panel.open_vendor(vendor_id, entity_data.get("name", "Vendor"))
+			UIManager.show_panel("vendor")
+		else:
+			push_warning("[NPCEntity] VendorPanel not found in scene tree")
 	else:
-		print("Opening trade UI with %s" % entity_data.get("name", entity_id))
-		# TODO: Task 5.3 - TradePanel integration
+		print("[NPCEntity] Opening trade UI with %s" % entity_data.get("name", entity_id))
+
+		# Open TradePanel for player-to-player trade
+		var trade_panel = get_tree().get_root().get_node_or_null("Zone/UILayer/Control/TradePanel")
+		if trade_panel:
+			trade_panel.initiate_trade(entity_id, entity_data.get("name", "Player"))
+			UIManager.show_panel("trade")
+		else:
+			push_warning("[NPCEntity] TradePanel not found in scene tree")
 
 
-func _open_quest_dialog() -> void:
-	print("Opening quest dialog for %s" % entity_data.get("name", entity_id))
-	# TODO: Task 6.3 - Quest dialog UI
+func _open_dialogue() -> void:
+	print("[NPCEntity] Opening dialogue for %s" % entity_data.get("name", entity_id))
+
+	# Dialogue system not yet implemented
+	# Show simple message for now
+	var npc_name = entity_data.get("name", "NPC")
+	var dialogue_text = entity_data.get("dialogue", "Hello, traveler!")
+
+	UIManager.show_error("%s: %s" % [npc_name, dialogue_text])
 
 
 func _inspect_player() -> void:
-	print("Inspecting player %s" % entity_data.get("name", entity_id))
-	# TODO: Task 9.4 - Player inspection UI
+	print("[NPCEntity] Inspecting player %s" % entity_data.get("name", entity_id))
 
+	# Player inspection UI not yet implemented
+	# Show simple info dialog for now
+	var player_name = entity_data.get("name", "Unknown Player")
+	var player_level = entity_data.get("level", 1)
+	var info_text = "Player: %s\nLevel: %d" % [player_name, player_level]
 
-func _send_friend_request() -> void:
-	print("Sending friend request to %s" % entity_data.get("name", entity_id))
-	# TODO: Task 7.1 - Friend system integration
+	UIManager.show_error(info_text)
 
 
 func _target_for_combat() -> void:
-	print("Targeting %s for combat" % entity_data.get("name", entity_id))
-	# TODO: Task 4.2 - Ability targeting system
+	print("[NPCEntity] Targeting %s for combat" % entity_data.get("name", entity_id))
+
+	# Set this entity as the player's current target
+	# The ability hotbar (Task 4.1) will use this target when abilities are activated
+	if WorldState.has_method("set_target"):
+		WorldState.set_target(entity_id, self)
+
+	# Show visual feedback that entity is targeted
+	_show_target_indicator()
+
+	# Display target in HUD
+	var hud = get_tree().get_root().get_node_or_null("Zone/UILayer/Control/HUD")
+	if hud and hud.has_method("set_target_info"):
+		var target_name = entity_data.get("name", "Unknown")
+		var target_health = entity_data.get("health", 100)
+		var target_max_health = entity_data.get("maxHealth", 100)
+		hud.set_target_info(target_name, target_health, target_max_health)
 
 
-func _gather_resource() -> void:
-	print("Gathering resource %s" % entity_data.get("name", entity_id))
-	# TODO: Task 6.2 - Resource gathering integration
-
-
-func _generic_interact() -> void:
-	print("Interacting with %s" % entity_data.get("name", entity_id))
+func _show_target_indicator() -> void:
+	# Visual indication that this entity is targeted
+	# Could add a highlight effect, selection circle, etc.
+	# For now, just modify the sprite slightly
+	if sprite:
+		sprite.modulate = Color(1.2, 1.2, 1.0)  # Slight yellow tint
 
 
 ## Check if this entity is targetable for abilities

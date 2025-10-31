@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://be64o33t5twd1"]
+[gd_scene load_steps=10 format=3 uid="uid://be64o33t5twd1"]
 
 [ext_resource type="Script" uid="uid://bjhlj3pvckegk" path="res://scenes/world/Zone.gd" id="1_zone"]
 [ext_resource type="PackedScene" uid="uid://hud_main" path="res://scenes/ui/HUD.tscn" id="2_hud"]
@@ -6,6 +6,9 @@
 [ext_resource type="PackedScene" uid="uid://trade_panel" path="res://scenes/ui/TradePanel.tscn" id="4_trade"]
 [ext_resource type="PackedScene" uid="uid://vendor_panel" path="res://scenes/ui/VendorPanel.tscn" id="5_vendor"]
 [ext_resource type="PackedScene" uid="uid://loot_panel" path="res://scenes/ui/LootPanel.tscn" id="6_loot"]
+[ext_resource type="PackedScene" uid="uid://chat_panel_1" path="res://scenes/ui/ChatPanel.tscn" id="7_chat"]
+[ext_resource type="PackedScene" uid="uid://guild_panel_1" path="res://scenes/ui/GuildPanel.tscn" id="8_guild"]
+[ext_resource type="PackedScene" uid="uid://deb4ugov3rlay" path="res://scenes/world/ui/DebugOverlay.tscn" id="9_debug"]
 
 [node name="Zone" type="Node2D"]
 script = ExtResource("1_zone")
@@ -44,3 +47,11 @@ visible = false
 
 [node name="LootPanel" parent="UILayer/Control" instance=ExtResource("6_loot")]
 visible = false
+
+[node name="ChatPanel" parent="UILayer/Control" instance=ExtResource("7_chat")]
+visible = true
+
+[node name="GuildPanel" parent="UILayer/Control" instance=ExtResource("8_guild")]
+visible = false
+
+[node name="DebugOverlay" parent="." instance=ExtResource("9_debug")]

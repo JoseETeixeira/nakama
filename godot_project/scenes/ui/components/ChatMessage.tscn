@@ -1,0 +1,27 @@
+[gd_scene load_steps=2 format=3 uid="uid://cmsg1"]
+
+[ext_resource type="Script" path="res://scenes/ui/components/ChatMessage.gd" id="1_cmsg"]
+
+[node name="ChatMessage" type="HBoxContainer"]
+custom_minimum_size = Vector2(0, 20)
+offset_right = 400.0
+offset_bottom = 20.0
+script = ExtResource("1_cmsg")
+
+[node name="TimestampLabel" type="Label" parent="."]
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+text = "12:34"
+modulate = Color(0.7, 0.7, 0.7, 1.0)
+
+[node name="SenderLabel" type="Label" parent="."]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "PlayerName"
+modulate = Color(0.5, 0.8, 1.0, 1.0)
+
+[node name="MessageLabel" type="Label" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Message content goes here"
+autowrap_mode = 3

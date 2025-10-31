@@ -43,6 +43,12 @@ var current_loading_dialog: Control = null
 ## Reference to active modal dialogs
 var active_dialogs: Array = []
 
+## Reference to active context menu (if any)
+var current_context_menu: Control = null
+
+## Context menu scene preload
+var context_menu_scene = preload("res://scenes/ui/ContextMenu.tscn")
+
 
 ## ============================================================================
 ## PANEL MANAGEMENT
@@ -456,6 +462,66 @@ func _get_rarity_color(rarity: String) -> String:
 			return "orange"
 		_:
 			return "white"
+
+
+## ============================================================================
+## CONTEXT MENU SYSTEM
+## ============================================================================
+
+## Show context menu with options
+##
+## Parameters:
+##   options: Array of option strings (e.g., ["Talk", "Trade", "Attack"])
+##   entity: NPCEntity or PlayerEntity that was clicked
+##   screen_position: Position to display menu (usually mouse position)
+##   callback_obj: Object that will receive selection callbacks (defaults to entity)
+##   callback_func: Method name to call on callback_obj when option selected
+##
+## Task: 7.1 - Implement NPC Interaction Menu
+## Requirements: 12
+## Design: NPC Interaction (lines 412-423)
+##
+## Spawns a context menu at the specified screen position with the given options.
+## When an option is selected, calls callback_func on callback_obj with the option text.
+func show_context_menu(options: Array[String], entity: Node, screen_position: Vector2, callback_obj: Object = null, callback_func: String = "") -> void:
+	# Hide existing context menu if any
+	if current_context_menu != null:
+		hide_context_menu()
+
+	# Create context menu instance
+	var menu = context_menu_scene.instantiate()
+
+	# Add to UIManager (makes it a top-level UI element)
+	add_child(menu)
+	current_context_menu = menu
+
+	# Show menu with options
+	menu.show_menu(options, entity, screen_position, callback_obj, callback_func)
+
+	# Connect popup_hide signal to cleanup
+	menu.popup_hide.connect(_on_context_menu_hidden)
+
+
+## Hide context menu
+##
+## Task: 7.1 - Implement NPC Interaction Menu
+## Requirements: 12
+##
+## Closes the currently displayed context menu.
+func hide_context_menu() -> void:
+	if current_context_menu == null:
+		return
+
+	current_context_menu.queue_free()
+	current_context_menu = null
+
+
+## Handle context menu hidden event
+func _on_context_menu_hidden() -> void:
+	# Cleanup when menu closes
+	if current_context_menu != null:
+		current_context_menu.queue_free()
+		current_context_menu = null
 
 
 ## ============================================================================
