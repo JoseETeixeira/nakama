@@ -36,6 +36,9 @@ const INTERPOLATION_SPEED: float = 0.3
 ## Entity ID from server
 var entity_id: String = ""
 
+## Entity type (player, npc, mob, resource, etc.)
+var entity_type: String = "player"
+
 ## Entity data from server (health, mana, buffs, etc.)
 var entity_data: Dictionary = {}
 
@@ -194,9 +197,6 @@ func use_ability(ability_id: String, target_id: String = "") -> void:
 		# Show error message to player
 		if UIManager:
 			UIManager.show_floating_text(error, global_position, Color.RED)
-	else:
-		var error = result.get("error", "Unknown error")
-		print("[PlayerEntity] Ability failed: ", error)
 
 
 ## Play ability animation
@@ -377,17 +377,28 @@ func initialize(id: String, data: Dictionary) -> void:
 	entity_id = id
 	entity_data = data
 
-	# Set initial position
-	if data.has("position"):
-		var pos = data.position
-		global_position = Vector2(pos.get("x", 0), pos.get("y", 0))
-		server_position = global_position
+	# Extract transform data
+	var transform_data = data.get("transform", {})
+	var position_data = transform_data.get("position", data.get("position", {}))
 
-	# Set initial health/mana
-	health = data.get("health", 100.0)
-	max_health = data.get("maxHealth", 100.0)
-	mana = data.get("mana", 100.0)
-	max_mana = data.get("maxMana", 100.0)
+	# Set initial position
+	if not position_data.is_empty():
+		global_position = Vector2(position_data.get("x", 0), position_data.get("y", 0))
+		server_position = global_position
+	
+	# Extract vitals data
+	var vitals_data = data.get("vitals", {})
+
+	# Set initial health/mana from vitals
+	health = vitals_data.get("health", 100.0)
+	max_health = vitals_data.get("maxHealth", vitals_data.get("max_health", 100.0))
+	mana = vitals_data.get("mana", 100.0)
+	max_mana = vitals_data.get("maxMana", vitals_data.get("max_mana", 100.0))
+
+	# Extract character data from state
+	var state_data = data.get("state", {})
+	if state_data.has("character_id"):
+		character_data["character_id"] = state_data.character_id
 
 	# Update UI
 	if is_node_ready():

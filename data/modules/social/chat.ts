@@ -424,12 +424,12 @@ export async function rpcChatSend(
  * @param payload JSON payload with DirectMessageRequest
  * @returns JSON response with DirectMessageResponse
  */
-export async function rpcSendDirectMessage(
+export function rpcSendDirectMessage(
   ctx: any,
   logger: any,
   nk: any,
   payload: string
-): Promise<string> {
+): string {
   logger.info(`[send_direct_message] Request from user ${ctx.userId}`);
 
   // Parse request
@@ -451,7 +451,7 @@ export async function rpcSendDirectMessage(
   }
 
   // Get sender's character information
-  const senderResult = await nk.sqlQuery(`
+  const senderResult = nk.sqlQuery(`
     SELECT character_id, name
     FROM characters
     WHERE account_id = $1
@@ -470,7 +470,7 @@ export async function rpcSendDirectMessage(
   validateMessage(request.message);
 
   // Get recipient's character and account information
-  const recipientResult = await nk.sqlQuery(`
+  const recipientResult = nk.sqlQuery(`
     SELECT c.character_id, c.name, c.account_id
     FROM characters c
     WHERE c.character_id = $1
@@ -504,7 +504,7 @@ export async function rpcSendDirectMessage(
   const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60; // 604,800 seconds
 
   try {
-    await nk.notificationsSend([{
+    nk.notificationsSend([{
       userId: recipientAccountId,
       subject: `Direct message from ${senderName}`,
       content: notificationContent,

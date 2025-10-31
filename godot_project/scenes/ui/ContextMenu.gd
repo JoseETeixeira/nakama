@@ -54,7 +54,7 @@ func show_menu(options: Array[String], entity: Node, screen_position: Vector2, c
 	position = screen_position
 
 	# Ensure menu stays on screen
-	var viewport_rect = get_viewport_rect()
+	var viewport_rect = get_viewport().get_visible_rect()
 	if position.x + size.x > viewport_rect.size.x:
 		position.x = viewport_rect.size.x - size.x
 	if position.y + size.y > viewport_rect.size.y:

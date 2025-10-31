@@ -33,9 +33,9 @@ var icon_pulse_time: float = 0.0
 
 
 func _ready() -> void:
-	# Enable input events for click detection
+	# Enable mouse filter for click detection
 	set_process_input(true)
-
+	
 	# Initialize target position to current position
 	target_position = global_position
 
@@ -43,6 +43,10 @@ func _ready() -> void:
 	if collision_shape:
 		collision_shape.shape = RectangleShape2D.new()
 		collision_shape.shape.size = Vector2(32, 32)
+	
+	# Connect input event signal (CharacterBody2D inherits from CollisionObject2D)
+	if not input_event.is_connected(_on_input_event):
+		input_event.connect(_on_input_event)
 
 
 func _process(delta: float) -> void:
@@ -64,24 +68,37 @@ func initialize(id: String, data: Dictionary) -> void:
 	if "type" in data:
 		entity_type = data.type
 
+	# Extract transform data
+	var transform_data = data.get("transform", {})
+	var position_data = transform_data.get("position", data.get("position", {}))
+
 	# Set initial position
-	if "position" in data:
-		var pos = data.position
-		if pos is Vector2:
-			global_position = pos
-			target_position = pos
-		elif pos is Dictionary and "x" in pos and "y" in pos:
-			global_position = Vector2(pos.x, pos.y)
-			target_position = Vector2(pos.x, pos.y)
+	if not position_data.is_empty():
+		if position_data is Vector2:
+			global_position = position_data
+			target_position = position_data
+		elif position_data is Dictionary and "x" in position_data and "y" in position_data:
+			global_position = Vector2(position_data.x, position_data.y)
+			target_position = Vector2(position_data.x, position_data.y)
+
+	# Extract vitals data
+	var vitals_data = data.get("vitals", {})
 
 	# Initialize visual components
 	update_name_label()
 
-	if "health" in data and "maxHealth" in data:
-		update_health_bar(data.health, data.maxHealth)
+	if not vitals_data.is_empty():
+		var health = vitals_data.get("health", 100)
+		var max_health = vitals_data.get("maxHealth", vitals_data.get("max_health", 100))
+		update_health_bar(health, max_health)
 
-	if "state" in data:
-		update_animation_state(data.state)
+	# Extract state data
+	var state_data = data.get("state", {})
+	if not state_data.is_empty():
+		# Merge state data into entity_data for easy access
+		for key in state_data.keys():
+			entity_data[key] = state_data[key]
+		update_animation_state(state_data)
 
 	# Set clickable based on entity type
 	is_clickable = entity_type in ["npc", "player", "mob"]
@@ -142,12 +159,24 @@ func update_name_label() -> void:
 
 
 # Update animation state based on server state (e.g., "idle", "walking", "attacking")
-func update_animation_state(state: String) -> void:
+func update_animation_state(state) -> void:
+	# Handle both String and Dictionary state formats
+	var state_name: String = ""
+	
+	if state is String:
+		state_name = state
+	elif state is Dictionary:
+		# Extract state name from Dictionary (server might send {name: "idle", ...})
+		state_name = state.get("name", state.get("type", "idle"))
+	else:
+		push_warning("[NPCEntity] Invalid state type: " + str(typeof(state)))
+		return
+	
 	# Placeholder for animation system integration
 	# In production, this would trigger AnimationPlayer or AnimatedSprite2D
 	# For now, change sprite color based on state for visual debugging
 	if sprite:
-		match state:
+		match state_name:
 			"idle":
 				sprite.color = Color(0.8, 0.8, 0.8)  # Gray
 			"walking":
@@ -212,12 +241,14 @@ func animate_icons(delta: float) -> void:
 
 
 # Handle click input for NPC interaction (Requirement 12)
-func _input_event(viewport: Viewport, event: InputEvent, shape_idx: int) -> void:
+# Signal handler connected in _ready()
+func _on_input_event(viewport: Node, event: InputEvent, shape_idx: int) -> void:
 	if not is_clickable:
 		return
 
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		# Player clicked on this entity
+		print("[NPCEntity] Clicked on entity: %s" % entity_data.get("name", entity_id))
 		show_interaction_menu()
 
 

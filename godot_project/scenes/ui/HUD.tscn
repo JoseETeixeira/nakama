@@ -1,7 +1,19 @@
-[gd_scene load_steps=2 format=3 uid="uid://hud_main"]
+[gd_scene load_steps=6 format=3 uid="uid://hud_main"]
 
 [ext_resource type="Script" path="res://scenes/ui/HUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" uid="uid://ability_button_component" path="res://scenes/ui/components/AbilityButton.tscn" id="2_ability_button"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+bg_color = Color(0.3, 0, 0, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
+bg_color = Color(0.8, 0.1, 0.1, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3"]
+bg_color = Color(0, 0.1, 0.3, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4"]
+bg_color = Color(0.2, 0.4, 1, 1)
 
 [node name="HUD" type="Control"]
 layout_mode = 3
@@ -93,15 +105,3 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_4")
 max_value = 100.0
 value = 100.0
 show_percentage = false
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
-bg_color = Color(0.3, 0, 0, 0.8)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
-bg_color = Color(0.8, 0.1, 0.1, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3"]
-bg_color = Color(0, 0.1, 0.3, 0.8)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4"]
-bg_color = Color(0.2, 0.4, 1, 1)

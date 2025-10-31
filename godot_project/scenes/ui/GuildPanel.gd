@@ -48,7 +48,7 @@ func _ready():
 
 func refresh_guild_data():
 	# Get guild data from WorldState
-	if WorldState and WorldState.has("player_guild_data"):
+	if WorldState and "player_guild_data" in WorldState:
 		guild_data = WorldState.player_guild_data
 	else:
 		guild_data = {}

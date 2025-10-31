@@ -322,7 +322,8 @@ function createDefaultZoneState(zoneId: string): ZoneState {
         behavior: 'idle',
         name: 'Village Guide',
         level: 10,
-        faction: 'friendly'
+        faction: 'friendly',
+        has_quest: true  // Show quest icon
       }
     },
     // Enemy mob
@@ -343,7 +344,8 @@ function createDefaultZoneState(zoneId: string): ZoneState {
         behavior: 'patrol',
         name: 'Goblin Scout',
         level: 3,
-        faction: 'hostile'
+        faction: 'hostile',
+        is_enemy: true  // Show aggro icon
       }
     },
     // Resource node

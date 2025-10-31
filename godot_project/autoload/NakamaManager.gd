@@ -31,6 +31,9 @@ var socket: NakamaSocket = null
 ## Task 2.1.5: Store character ID for zone_snapshot RPC
 var current_character_id: String = ""
 
+## Currently selected character name
+var current_character_name: String = ""
+
 ## Network metrics tracking (Requirement 4 - Task 3.4)
 var network_metrics: Dictionary = {
 	"last_delta_size": 0,          # Size of last delta message in bytes
@@ -173,6 +176,12 @@ func authenticate_device() -> void:
 
 	# Create socket connection for real-time communication
 	socket = Nakama.create_socket_from(client)
+	
+	# Connect socket event handlers
+	socket.closed.connect(_on_socket_closed)
+	socket.connected.connect(_on_socket_connected)
+	socket.received_error.connect(_on_socket_error)
+	
 	var connected = await socket.connect_async(session)
 
 	if connected.is_exception():
@@ -299,6 +308,10 @@ func select_character(character_id: String) -> Dictionary:
 
 	var character = data.get("character", {})
 	
+	# Store current character ID and name
+	current_character_id = character.get("characterId", "")
+	current_character_name = character.get("name", "Unknown")
+	
 	# Log RPC response (Task 8.2)
 	_log_network("RPC", "select_character -> Response: %s" % character.get("name", "Unknown"), data)
 	
@@ -406,9 +419,22 @@ func enter_world(character_id: String) -> Dictionary:
 ## Task 2.1.5: Updated to pass character_id instead of client-provided aoi_seed.
 ## Server now calculates AOI seed from character's position (server-authoritative).
 func join_zone(zone_id: String, spawn_position: Variant = Vector2(0, 0)) -> void:
-	if session == null or socket == null:
-		push_error("[NakamaManager] Cannot join zone: not authenticated or socket disconnected")
+	if session == null:
+		push_error("[NakamaManager] Cannot join zone: not authenticated")
 		return
+	
+	if socket == null:
+		push_error("[NakamaManager] Cannot join zone: socket is null")
+		return
+	
+	# Check if socket is connected, if not try to reconnect
+	if not socket.is_connected_to_host():
+		print("[NakamaManager] Socket not connected, attempting to reconnect...")
+		var reconnect_result = await socket.connect_async(session)
+		if reconnect_result.is_exception():
+			push_error("[NakamaManager] Socket reconnection failed: ", reconnect_result.get_exception().message)
+			return
+		print("[NakamaManager] Socket reconnected")
 
 	if current_character_id == "":
 		push_error("[NakamaManager] Cannot join zone: no character selected")
@@ -442,6 +468,31 @@ func join_zone(zone_id: String, spawn_position: Variant = Vector2(0, 0)) -> void
 
 	# Apply snapshot to world state (Task 2.4.1)
 	WorldState.apply_snapshot(snapshot_blob)
+
+	# Spawn the local player character entity
+	# The snapshot only contains zone entities (NPCs, mobs, resources)
+	# We need to spawn the player character separately using the spawn position
+	print("[NakamaManager] Spawning player character entity: %s" % current_character_id)
+	
+	# Convert spawn_position to Vector2/Vector3 if it's a Dictionary
+	var actual_spawn_position = spawn_position
+	if spawn_position is Dictionary:
+		var z_val = spawn_position.get("z", 0.0)
+		if z_val != 0.0:
+			# 3D position
+			actual_spawn_position = Vector3(
+				spawn_position.get("x", 0.0),
+				spawn_position.get("y", 0.0),
+				z_val
+			)
+		else:
+			# 2D position
+			actual_spawn_position = Vector2(
+				spawn_position.get("x", 0.0),
+				spawn_position.get("y", 0.0)
+			)
+	
+	WorldState.spawn_player_character(current_character_id, actual_spawn_position, current_character_name)
 
 	# Join zone match for delta streaming (Task 2.3.1)
 	if match_id != "":
@@ -1553,3 +1604,22 @@ func reset_network_metrics() -> void:
 	}
 	_delta_intervals.clear()
 	print("[NakamaManager] Network metrics reset")
+
+
+## Socket event handlers for connection monitoring
+func _on_socket_connected() -> void:
+	print("[NakamaManager] Socket connected successfully")
+
+
+func _on_socket_closed() -> void:
+	push_warning("[NakamaManager] Socket connection closed. Attempting to reconnect...")
+	if session != null and socket != null:
+		var reconnect_result = await socket.connect_async(session)
+		if reconnect_result.is_exception():
+			push_error("[NakamaManager] Socket reconnection failed: ", reconnect_result.get_exception().message)
+		else:
+			print("[NakamaManager] Socket reconnected successfully")
+
+
+func _on_socket_error(error) -> void:
+	push_error("[NakamaManager] Socket error: ", str(error))

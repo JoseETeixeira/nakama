@@ -394,11 +394,11 @@ function applyAbilityEffects(
  * @param logger Logger instance
  * @returns Character context or null if not found
  */
-async function loadCharacterContext(
+function loadCharacterContext(
   nk: any,
   userId: string,
   logger: any
-): Promise<CharacterContext | null> {
+): CharacterContext | null {
   try {
     const result = nk.sqlQuery(`
       SELECT character_id, last_position, last_zone_id, stats
@@ -475,12 +475,12 @@ async function loadCharacterContext(
  * @param logger Logger instance
  * @returns Target context or null if not found
  */
-async function loadTargetContext(
+function loadTargetContext(
   nk: any,
   targetId: string,
   zoneId: string,
   logger: any
-): Promise<TargetContext | null> {
+): TargetContext | null {
   try {
     // Query target from characters table (player targets)
     const result = nk.sqlQuery(`
@@ -546,14 +546,14 @@ async function loadTargetContext(
  * @param abilityId Ability ID
  * @param logger Logger instance
  */
-async function updateCharacterStats(
+function updateCharacterStats(
   nk: any,
   characterId: string,
   manaCost: number,
   cooldownExpiry: number,
   abilityId: string,
   logger: any
-): Promise<void> {
+): void {
   try {
     // Task 3.3.4: Persist cooldown to database with mana update
     nk.sqlExec(`
@@ -589,13 +589,13 @@ async function updateCharacterStats(
  * @param logger Logger instance
  * @returns Final health value after damage/healing
  */
-async function updateTargetVitals(
+function updateTargetVitals(
   nk: any,
   targetId: string,
   damage: number,
   healing: number,
   logger: any
-): Promise<number> {
+): number {
   try {
     let finalHealth = 0;
 
@@ -650,13 +650,13 @@ async function updateTargetVitals(
  * @param logger Logger instance
  * @returns True if target died
  */
-async function checkDeath(
+function checkDeath(
   nk: any,
   targetId: string,
   finalHealth: number,
   sourceId: string,
   logger: any
-): Promise<boolean> {
+): boolean {
   if (finalHealth > 0) {
     return false; // Target still alive
   }
@@ -777,7 +777,7 @@ async function respawnCharacter(
  * @param criticalHit Whether a critical hit occurred
  * @param isDead Whether target died from this ability
  */
-async function broadcastAbilityResult(
+function broadcastAbilityResult(
   nk: any,
   logger: any,
   zoneId: string,
@@ -788,7 +788,7 @@ async function broadcastAbilityResult(
   healing: number,
   criticalHit: boolean,
   isDead: boolean
-): Promise<void> {
+): void {
   try {
     // Create ability result event
     const event = {
@@ -805,7 +805,7 @@ async function broadcastAbilityResult(
     };
 
     // Query all characters in the same zone to get their user IDs
-    const result = await nk.sqlQuery(`
+    const result = nk.sqlQuery(`
       SELECT user_id
       FROM characters
       WHERE last_zone_id = $1 AND user_id IS NOT NULL
@@ -851,12 +851,12 @@ async function broadcastAbilityResult(
  * @param payload JSON payload with AbilityIntent
  * @returns JSON response with AbilityResult
  */
-export async function rpcUseAbility(
+export function rpcUseAbility(
   ctx: any,
   logger: any,
   nk: any,
   payload: string
-): Promise<string> {
+): string {
   logger.info(`[use_ability] Request from user ${ctx.userId}`);
 
   // Parse request
@@ -888,7 +888,7 @@ export async function rpcUseAbility(
   }
 
   // Load source character context
-  const source = await loadCharacterContext(nk, ctx.userId, logger);
+  const source = loadCharacterContext(nk, ctx.userId, logger);
   if (!source) {
     logger.warn(`[use_ability] Character not found for user ${ctx.userId}`);
     return JSON.stringify({
@@ -901,7 +901,7 @@ export async function rpcUseAbility(
   }
 
   // Load target context
-  const target = await loadTargetContext(nk, intent.targetId, source.zoneId, logger);
+  const target = loadTargetContext(nk, intent.targetId, source.zoneId, logger);
   if (!target) {
     logger.warn(`[use_ability] Target not found: ${intent.targetId}`);
     return JSON.stringify({
@@ -934,16 +934,16 @@ export async function rpcUseAbility(
 
   // Update character stats (mana cost, cooldown)
   const cooldownExpiry = Date.now() + ability.cooldown;
-  await updateCharacterStats(nk, source.characterId, ability.cost, cooldownExpiry, ability.id, logger);
+  updateCharacterStats(nk, source.characterId, ability.cost, cooldownExpiry, ability.id, logger);
 
   // Update target vitals (Task 3.3.5: Returns final health for death check)
-  const finalHealth = await updateTargetVitals(nk, target.entityId, effects.damage, effects.healing, logger);
+  const finalHealth = updateTargetVitals(nk, target.entityId, effects.damage, effects.healing, logger);
 
   // Check for death (Task 3.3.5: Death logic)
-  const targetDied = await checkDeath(nk, target.entityId, finalHealth, source.characterId, logger);
+  const targetDied = checkDeath(nk, target.entityId, finalHealth, source.characterId, logger);
 
   // Task 3.3.6: Broadcast ability result to AOI subscribers
-  await broadcastAbilityResult(
+  broadcastAbilityResult(
     nk,
     logger,
     source.zoneId,

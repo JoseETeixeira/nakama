@@ -156,7 +156,7 @@ func _on_my_item_dropped(from_slot: int, to_slot: int) -> void:
 	# When dropping from inventory to trade, we get the inventory slot index
 	# We should get the item from WorldState.player_inventory
 
-	if not WorldState or not WorldState.has("player_inventory"):
+	if not WorldState or not "player_inventory" in WorldState:
 		print("[TradePanel] WorldState.player_inventory not available")
 		return
 

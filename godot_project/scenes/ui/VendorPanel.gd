@@ -177,7 +177,7 @@ func sell_item(item_data: Dictionary):
 func update_currency_display():
 	"""Update player currency display from WorldState"""
 	# Get currency from WorldState (assuming it's stored in player_currency property)
-	if WorldState.has("player_currency"):
+	if "player_currency" in WorldState:
 		player_currency = WorldState.player_currency
 	else:
 		# Fallback: parse from player entity metadata or use default

@@ -89,7 +89,7 @@ func update_stats() -> void:
 
 	# Delta statistics (from WorldState.delta_stats if available)
 	var stats_text: String = "Delta: "
-	if WorldState and WorldState.has("delta_stats"):
+	if WorldState and "delta_stats" in WorldState:
 		var stats = WorldState.delta_stats
 		var delta_size = stats.get("last_size", 0)
 		var entity_count_updated = stats.get("last_entity_count", 0)
@@ -107,7 +107,7 @@ func update_stats() -> void:
 	memory_label.text = "Memory: %.1f MB" % memory_usage_mb
 	
 	# Performance profiling (Task 8.3)
-	if WorldState and WorldState.has("performance_stats"):
+	if WorldState and "performance_stats" in WorldState:
 		var perf_stats = WorldState.performance_stats
 		var delta_time = perf_stats.get("last_delta_time_ms", 0.0)
 		var entity_time = perf_stats.get("last_entity_update_time_ms", 0.0)
@@ -203,8 +203,8 @@ func export_profiling_data() -> void:
 		"memory_mb": Performance.get_monitor(Performance.MEMORY_STATIC) / 1024.0 / 1024.0,
 		"entity_count": WorldState.get_entity_count() if WorldState else 0,
 		"network_metrics": NakamaManager.get_network_metrics() if NakamaManager else {},
-		"delta_stats": WorldState.delta_stats.duplicate() if WorldState and WorldState.has("delta_stats") else {},
-		"performance_stats": WorldState.performance_stats.duplicate() if WorldState and WorldState.has("performance_stats") else {},
+		"delta_stats": WorldState.delta_stats.duplicate() if WorldState and "delta_stats" in WorldState else {},
+		"performance_stats": WorldState.performance_stats.duplicate() if WorldState and "performance_stats" in WorldState else {},
 		"spawn_count": spawn_count,
 		"despawn_count": despawn_count,
 		"server_tick_rate": server_tick_rate,

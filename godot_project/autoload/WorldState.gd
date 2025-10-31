@@ -47,6 +47,9 @@ signal snapshot_performance_warning(elapsed_ms: int)
 ## Emitted when an entity is added to allow custom scene instantiation (Requirement 33, line 716)
 signal entity_added(entity_id: String, entity_type: String, entity_node: Node)
 
+## Emitted when an entity's data is updated
+signal entity_updated(entity_id: String, data: Dictionary)
+
 ## Emitted when player inventory is updated from server
 ## Task 5.1 - Create Inventory Panel UI
 ## Requirement: 6 (Inventory Management)
@@ -233,7 +236,7 @@ func load_snapshot(snapshot_data: Variant) -> void:
 		# Uncompressed dictionary format (convert to JSON string for SnapshotApplier)
 		# This path handles cases where server sends uncompressed snapshot data
 		var snapshot_json = JSON.stringify(snapshot_data)
-		var snapshot_base64 = Marshalls.utf8_to_base64(snapshot_json.to_utf8_buffer())
+		var snapshot_base64 = Marshalls.utf8_to_base64(snapshot_json)
 		apply_snapshot(snapshot_base64)
 	else:
 		var error_msg := "[WorldState] Invalid snapshot_data type: expected String (base64) or Dictionary"
@@ -373,10 +376,18 @@ func spawn_entity(entity_data: Dictionary, is_3d: bool = false) -> void:
 	var entity_node = entity_scene.instantiate()
 	entity_node.name = entity_id
 
-	# Set entity properties
-	if entity_node.has_method("set"):
+	# Set entity properties using set() if available, otherwise direct assignment
+	# Check if entity_id property exists before setting
+	if "entity_id" in entity_node:
 		entity_node.entity_id = entity_id
+	elif entity_node.has_method("set_entity_id"):
+		entity_node.set_entity_id(entity_id)
+	
+	# Check if entity_type property exists before setting
+	if "entity_type" in entity_node:
 		entity_node.entity_type = entity_type
+	elif entity_node.has_method("set_entity_type"):
+		entity_node.set_entity_type(entity_type)
 
 	if is_3d:
 		# 3D world: Set position and rotation
@@ -424,6 +435,72 @@ func spawn_entity(entity_data: Dictionary, is_3d: bool = false) -> void:
 
 	# Emit signal for custom instantiation (Requirement 33, line 716)
 	entity_added.emit(entity_id, entity_type, entity_node)
+
+
+## Spawn the local player character entity
+##
+## This is called after zone snapshot is applied to create the player's own character.
+## The snapshot only includes zone entities (NPCs, mobs, resources), not the player.
+##
+## Parameters:
+##   character_id: Character UUID
+##   spawn_position: Spawn position (Vector2 for 2D, Vector3 for 3D)
+func spawn_player_character(character_id: String, spawn_position: Variant, character_name: String = "Player") -> void:
+	if character_id.is_empty():
+		push_error("[WorldState] Cannot spawn player: character_id is empty")
+		return
+
+	# Create entity ID for player (use character_id as entity_id)
+	var entity_id = "player_" + character_id
+
+	# Check if player already exists
+	if entities.has(entity_id):
+		push_warning("[WorldState] Player entity already exists: %s" % entity_id)
+		return
+
+	# Determine if 2D or 3D based on spawn_position type
+	var is_3d = spawn_position is Vector3
+
+	# Build entity data for player character
+	var entity_data := {
+		"entityId": entity_id,
+		"entity_id": entity_id,
+		"type": "player",
+		"name": character_name,
+		"transform": {
+			"position": {},
+			"rotation": {"x": 0.0, "y": 0.0, "z": 0.0}
+		},
+		"vitals": {
+			"health": 100,
+			"maxHealth": 100,
+			"mana": 100,
+			"maxMana": 100
+		},
+		"state": {
+			"character_id": character_id,
+			"is_local_player": true
+		}
+	}
+
+	# Set position based on dimension
+	if is_3d:
+		entity_data.transform.position = {
+			"x": spawn_position.x,
+			"y": spawn_position.y,
+			"z": spawn_position.z
+		}
+	else:
+		entity_data.transform.position = {
+			"x": spawn_position.x,
+			"y": spawn_position.y,
+			"z": 0.0
+		}
+
+	print("[WorldState] Spawning player character: %s at (%s)" % [character_id, spawn_position])
+
+	# Spawn using existing spawn_entity logic
+	spawn_entity(entity_data, is_3d)
 
 
 ## Despawn an entity by ID
@@ -623,6 +700,8 @@ func update_entity(update_data: Dictionary) -> void:
 	# Entity2D and Entity3D handle field-level updates internally
 	if entity_node.has_method("apply_update"):
 		entity_node.apply_update(update_data)
+		# Emit signal after successful update
+		entity_updated.emit(entity_id, update_data)
 	else:
 		push_warning("[WorldState] Entity %s does not have apply_update method" % entity_id)
 	

@@ -1,9 +1,12 @@
-[gd_scene load_steps=2 format=3 uid="uid://c8h3x5j2k9m1n"]
+[gd_scene load_steps=3 format=3 uid="uid://c8h3x5j2k9m1n"]
 
 [ext_resource type="Script" path="res://scenes/world/entities/NPCEntity.gd" id="1_npc_entity"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_npc"]
 size = Vector2(32, 32)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_health_fill"]
+bg_color = Color(0.2, 0.8, 0.2, 1)
 
 [node name="NPCEntity" type="CharacterBody2D"]
 script = ExtResource("1_npc_entity")
@@ -40,9 +43,6 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_health_fill")
 max_value = 100.0
 value = 100.0
 show_percentage = false
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_health_fill"]
-bg_color = Color(0.2, 0.8, 0.2, 1)
 
 [node name="VendorIcon" type="ColorRect" parent="."]
 visible = false

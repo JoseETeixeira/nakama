@@ -1,5 +1,13 @@
-res://scenes/world/entities/Entity2D.tscn
-res://autoload/NakamaManager.gd
-res://scripts/networking/SnapshotApplier.gd
+res://scenes/world/entities/PlayerEntity.gd
 res://autoload/WorldState.gd
-res://scenes/world/Zone.tscn
+res://scenes/ui/ContextMenu.gd
+res://scenes/world/entities/NPCEntity.tscn
+res://scenes/world/entities/NPCEntity.gd
+res://scenes/ui/GuildPanel.gd
+res://scenes/ui/LootPanel.gd
+res://scenes/ui/TradePanel.gd
+res://scenes/ui/VendorPanel.gd
+res://scripts/ui/DebugOverlay.gd
+res://autoload/NakamaManager.gd
+res://scenes/world/Zone.gd
+res://autoload/UIManager.gd

@@ -465,6 +465,60 @@ func _get_rarity_color(rarity: String) -> String:
 
 
 ## ============================================================================
+## FLOATING TEXT SYSTEM (Damage Numbers, Messages)
+## ============================================================================
+
+## Show floating text at a world position
+##
+## Parameters:
+##   text: Text to display
+##   world_position: Position in world space (Vector2 or Vector3)
+##   color: Color of the text
+##
+## Task: Combat feedback
+## Requirements: 5 (Combat System)
+##
+## Displays floating text that animates upward and fades out.
+func show_floating_text(text: String, world_position: Variant, color: Color = Color.WHITE) -> void:
+	# Get the VFX container from the current zone scene
+	var zone = get_tree().current_scene
+	if zone == null:
+		push_warning("[UIManager] Cannot show floating text: no current scene")
+		return
+	
+	var vfx_container = zone.get_node_or_null("VFXContainer")
+	if vfx_container == null:
+		push_warning("[UIManager] Cannot show floating text: VFXContainer not found")
+		return
+	
+	# Create floating text label
+	var label = Label.new()
+	label.text = text
+	label.modulate = color
+	label.add_theme_font_size_override("font_size", 20)
+	
+	# Set position
+	if world_position is Vector2:
+		label.position = world_position
+	elif world_position is Vector3:
+		label.position = Vector2(world_position.x, world_position.y)
+	else:
+		push_warning("[UIManager] Invalid world_position type for floating text")
+		label.queue_free()
+		return
+	
+	# Add to VFX container
+	vfx_container.add_child(label)
+	
+	# Animate upward and fade out
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(label, "position:y", label.position.y - 50, 1.0)
+	tween.tween_property(label, "modulate:a", 0.0, 1.0)
+	tween.finished.connect(func(): label.queue_free())
+
+
+## ============================================================================
 ## CONTEXT MENU SYSTEM
 ## ============================================================================
 

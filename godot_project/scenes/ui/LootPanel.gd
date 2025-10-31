@@ -88,7 +88,7 @@ func take_item(item_data: Dictionary):
 
 	# Add to player inventory (simulated - in real implementation, this would call an RPC)
 	# For now, we'll add directly to WorldState
-	if WorldState.has("player_inventory"):
+	if "player_inventory" in WorldState:
 		# Find empty slot
 		var empty_slot = find_empty_inventory_slot()
 		if empty_slot >= 0:
@@ -155,7 +155,7 @@ func _on_take_all_button_pressed():
 
 func has_inventory_space() -> bool:
 	"""Check if player inventory has empty slots"""
-	if not WorldState.has("player_inventory"):
+	if not "player_inventory" in WorldState:
 		return false
 
 	var max_slots = 50  # From Task 5.1
@@ -169,7 +169,7 @@ func has_inventory_space() -> bool:
 
 func find_empty_inventory_slot() -> int:
 	"""Find first empty slot in inventory"""
-	if not WorldState.has("player_inventory"):
+	if not "player_inventory" in WorldState:
 		return -1
 
 	var max_slots = 50  # From Task 5.1
