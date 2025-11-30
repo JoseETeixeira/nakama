@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: kiro
 ---
 # **Task Execution Guide**
 

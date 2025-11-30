@@ -34,6 +34,9 @@ var current_character_id: String = ""
 ## Currently selected character name
 var current_character_name: String = ""
 
+## Currently joined match ID for delta streaming
+var current_match_id: String = ""
+
 ## Network metrics tracking (Requirement 4 - Task 3.4)
 var network_metrics: Dictionary = {
 	"last_delta_size": 0,          # Size of last delta message in bytes
@@ -497,15 +500,37 @@ func join_zone(zone_id: String, spawn_position: Variant = Vector2(0, 0)) -> void
 	# Join zone match for delta streaming (Task 2.3.1)
 	if match_id != "":
 		print("[NakamaManager] Joining zone match: %s" % match_id)
-		var match_result = await socket.join_match_async(match_id)
-		if match_result.is_exception():
-			push_error("[NakamaManager] Failed to join zone match: ", match_result.get_exception().message)
-		else:
-			print("[NakamaManager] Successfully joined zone match for delta streaming")
+		
+		var match_joined = false
+		var retry_count = 0
+		var max_retries = 3
+		
+		while not match_joined and retry_count < max_retries:
+			if not socket.is_connected_to_host():
+				print("[NakamaManager] Socket disconnected, waiting for reconnection...")
+				await get_tree().create_timer(1.0).timeout
+				if not socket.is_connected_to_host():
+					# Try explicit reconnect if still disconnected
+					await socket.connect_async(session)
+			
+			var match_result = await socket.join_match_async(match_id)
+			
+			if match_result.is_exception():
+				retry_count += 1
+				push_warning("[NakamaManager] Failed to join zone match (attempt %d/%d): %s" % [retry_count, max_retries, match_result.get_exception().message])
+				if retry_count < max_retries:
+					await get_tree().create_timer(1.0).timeout
+			else:
+				match_joined = true
+				current_match_id = match_id
+				print("[NakamaManager] Successfully joined zone match for delta streaming")
 
-			# Connect signal handler for match state updates (delta updates)
-			if not socket.received_match_state.is_connected(_on_zone_delta_match):
-				socket.received_match_state.connect(_on_zone_delta_match)
+				# Connect signal handler for match state updates (delta updates)
+				if not socket.received_match_state.is_connected(_on_zone_delta_match):
+					socket.received_match_state.connect(_on_zone_delta_match)
+		
+		if not match_joined:
+			push_error("[NakamaManager] Failed to join zone match after %d attempts" % max_retries)
 	else:
 		push_warning("[NakamaManager] No match_id in snapshot response, delta streaming unavailable")
 
@@ -604,11 +629,14 @@ func _on_zone_delta_match(match_state: NakamaRTAPI.MatchData) -> void:
 ## MOVEMENT RPCs
 ## ============================================================================
 
+## Nonce counter for move_intent deduplication
+var _move_intent_nonce: int = 0
+
 ## Send player movement intent to server
 ##
 ## Parameters:
-##   position: Target position Vector2(x, y)
-##   velocity: Movement velocity Vector2(x, y)
+##   position: Current position Vector2(x, y) - used to calculate predicted position
+##   velocity: Movement velocity Vector2(x, y) - used to derive direction
 ##
 ## Returns: void (fire-and-forget, server validates and sends delta updates)
 ##
@@ -620,13 +648,47 @@ func move_intent(position: Vector2, velocity: Vector2) -> void:
 		push_error("[NakamaManager] Cannot send move_intent: not authenticated")
 		return
 
+	# Calculate normalized direction from velocity
+	var direction = velocity.normalized() if velocity.length() > 0 else Vector2.ZERO
+	
+	# Increment nonce for deduplication
+	_move_intent_nonce += 1
+	
 	var payload = JSON.stringify({
-		"position": {"x": position.x, "y": position.y},
-		"velocity": {"x": velocity.x, "y": velocity.y}
+		"direction": {"x": direction.x, "y": direction.y},
+		"timestamp": Time.get_ticks_msec(),
+		"nonce": _move_intent_nonce,
+		"predictedPosition": {"x": position.x, "y": position.y}
 	})
 
 	# Fire-and-forget RPC (no await needed, server responds via delta stream)
 	client.rpc_async(session, "move_intent", payload)
+
+
+## Send position update to zone match for delta streaming
+##
+## Parameters:
+##   position: Current player position Vector2(x, y)
+##
+## Returns: void (fire-and-forget to match)
+##
+## Task: 2.3.1 - Delta Streaming via Matches
+## Requirement: 8 (AOI Management and Delta Streaming)
+##
+## Sends position updates to the zone match so other players can see this player move
+func send_match_position(position: Vector2) -> void:
+	if socket == null or not socket.is_connected_to_host():
+		return
+	
+	if current_match_id == "":
+		return
+	
+	var payload = JSON.stringify({
+		"position": {"x": position.x, "y": position.y, "z": 0.0}
+	})
+	
+	# Send as match data message (opcode 2 for position updates)
+	socket.send_match_state_async(current_match_id, 2, payload)
 
 
 ## ============================================================================

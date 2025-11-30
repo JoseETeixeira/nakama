@@ -27,15 +27,13 @@ var interpolation_speed: float = 200.0  # Pixels per second (matches MOVE_SPEED 
 
 # Input detection for click interactions
 var is_clickable: bool = true  # NPCs/players can be clicked, resources may not
+var click_area: Area2D = null  # Area2D for detecting mouse clicks
 
 # Animation state for pulsing icons
 var icon_pulse_time: float = 0.0
 
 
 func _ready() -> void:
-	# Enable mouse filter for click detection
-	set_process_input(true)
-	
 	# Initialize target position to current position
 	target_position = global_position
 
@@ -44,9 +42,27 @@ func _ready() -> void:
 		collision_shape.shape = RectangleShape2D.new()
 		collision_shape.shape.size = Vector2(32, 32)
 	
-	# Connect input event signal (CharacterBody2D inherits from CollisionObject2D)
-	if not input_event.is_connected(_on_input_event):
-		input_event.connect(_on_input_event)
+	# Create Area2D for mouse click detection
+	click_area = Area2D.new()
+	click_area.name = "ClickArea"
+	click_area.input_pickable = true  # CRITICAL: Enable input detection
+	click_area.monitorable = false  # Don't need collision monitoring
+	click_area.monitoring = false   # Don't need to monitor other areas
+	add_child(click_area)
+	
+	var click_shape = CollisionShape2D.new()
+	click_shape.shape = RectangleShape2D.new()
+	click_shape.shape.size = Vector2(32, 32)
+	click_area.add_child(click_shape)
+	
+	# Connect mouse signals
+	click_area.input_event.connect(_on_click_area_input_event)
+	
+	# Ensure sprite doesn't block input
+	if sprite:
+		sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	print("[NPCEntity] Click area created for entity (will be named in initialize())")
 
 
 func _process(delta: float) -> void:
@@ -102,6 +118,13 @@ func initialize(id: String, data: Dictionary) -> void:
 
 	# Set clickable based on entity type
 	is_clickable = entity_type in ["npc", "player", "mob"]
+	
+	# Update click area settings
+	if click_area:
+		click_area.input_pickable = is_clickable
+		print("[NPCEntity] Click area configured for: ", entity_id, " (input_pickable: ", is_clickable, ")")
+	
+	print("[NPCEntity] Initialized: ", entity_id, " (clickable: ", is_clickable, ")")
 
 	# Update visual indicators (Task 7.2)
 	update_indicators()
@@ -240,20 +263,39 @@ func animate_icons(delta: float) -> void:
 		aggro_icon.scale = Vector2(pulse_scale, pulse_scale)
 
 
-# Handle click input for NPC interaction (Requirement 12)
-# Signal handler connected in _ready()
-func _on_input_event(viewport: Node, event: InputEvent, shape_idx: int) -> void:
+# Handle global input for click detection (Fallback/Primary method)
+func _unhandled_input(event: InputEvent) -> void:
 	if not is_clickable:
 		return
-
+		
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		# Player clicked on this entity
-		print("[NPCEntity] Clicked on entity: %s" % entity_data.get("name", entity_id))
-		show_interaction_menu()
+		var mouse_pos = get_global_mouse_position()
+		# Check distance to entity center (assuming 32x32 size, radius ~25)
+		if global_position.distance_to(mouse_pos) < 25.0:
+			print("[NPCEntity] _unhandled_input CLICK detected on: %s (dist: %.2f)" % [entity_data.get("name", entity_id), global_position.distance_to(mouse_pos)])
+			show_interaction_menu()
+			get_viewport().set_input_as_handled()
+
+
+# Handle Area2D input events for click detection
+func _on_click_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
+	print("[NPCEntity] _on_click_area_input_event called for: ", entity_id, " | event: ", event, " | clickable: ", is_clickable)
+	
+	if not is_clickable:
+		print("[NPCEntity] Entity not clickable, ignoring input")
+		return
+	
+	if event is InputEventMouseButton:
+		print("[NPCEntity] Mouse button event: pressed=", event.pressed, " button=", event.button_index)
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			print("[NPCEntity] ✓ LEFT CLICK detected on entity: %s" % entity_data.get("name", entity_id))
+			show_interaction_menu()
 
 
 # Show context menu for NPC interaction (Requirement 12)
 func show_interaction_menu() -> void:
+	print("[NPCEntity] show_interaction_menu called for: %s (type: %s)" % [entity_data.get("name", entity_id), entity_type])
+	
 	# Build context menu items based on entity type and data
 	var menu_items: Array[String] = []
 
@@ -275,8 +317,12 @@ func show_interaction_menu() -> void:
 	if menu_items.is_empty():
 		menu_items.append("Talk")
 
+	print("[NPCEntity] Context menu items: %s" % menu_items)
+
 	# Get mouse position for context menu placement
 	var mouse_pos = get_viewport().get_mouse_position()
+
+	print("[NPCEntity] Showing context menu at: %s" % mouse_pos)
 
 	# Show context menu via UIManager
 	UIManager.show_context_menu(menu_items, self, mouse_pos, self, "_on_menu_item_selected")

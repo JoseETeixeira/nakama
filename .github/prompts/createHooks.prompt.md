@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: kiro
 ---
 # Workflow Stage: Hook Creation
 

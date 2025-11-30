@@ -16,7 +16,7 @@
  */
 
 import { Position } from './types';
-import { broadcastZoneDelta, createZoneMatch } from './delta';
+import { broadcastZoneDelta, createZoneMatch, getOrCreateZoneMatch } from './delta';
 import { ZoneDelta, EntityUpdate } from './types';
 
 /**
@@ -856,37 +856,7 @@ function broadcastPositionUpdate(
   }
 }
 
-/**
- * Gets or creates a match for zone delta streaming.
- * Task 3.1.3: Match management for broadcasting
- *
- * In production, ZoneProcess creates the match on zone startup.
- * For Phase 3.1.3, we create on-demand for testing.
- *
- * @param nk Nakama runtime
- * @param logger Nakama logger
- * @param zoneId Zone identifier
- * @returns Match ID or null if creation fails
- */
-function getOrCreateZoneMatch(
-  nk: any,
-  logger: any,
-  zoneId: string
-): string | null {
-  try {
-    // TODO: Phase 2.2 - Query ZoneProcess for match_id
-    // For now, create match on-demand (not production-ready)
 
-    // Check if match already exists (simple in-memory cache would be better)
-    // This is a placeholder - production uses ZoneProcess state
-    const matchId = createZoneMatch(nk, logger, zoneId, 'shard_01');
-
-    return matchId;
-  } catch (err: any) {
-    logger.error('[movement] Failed to get/create zone match: %s', err.message);
-    return null;
-  }
-}
 
 /**
  * Module initialization.

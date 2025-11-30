@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: kiro
 ---
 
 # Code Review Prompt

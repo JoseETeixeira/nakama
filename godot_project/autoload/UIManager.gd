@@ -49,6 +49,18 @@ var current_context_menu: Control = null
 ## Context menu scene preload
 var context_menu_scene = preload("res://scenes/ui/ContextMenu.tscn")
 
+## CanvasLayer for UI overlays (tooltips, menus, dialogs)
+var ui_layer: CanvasLayer
+
+func _ready() -> void:
+	# Create a dedicated CanvasLayer for UI overlays to ensure they render on top
+	# and use screen coordinates regardless of camera position
+	ui_layer = CanvasLayer.new()
+	ui_layer.layer = 100 # High layer to be on top of other UI
+	ui_layer.name = "OverlayLayer"
+	add_child(ui_layer)
+
+
 
 ## ============================================================================
 ## PANEL MANAGEMENT
@@ -226,8 +238,8 @@ func show_error(message: String) -> void:
 	dialog.dialog_text = message
 	dialog.ok_button_text = "OK"
 
-	# Add to scene tree
-	add_child(dialog)
+	# Add to UI Overlay Layer
+	ui_layer.add_child(dialog)
 	active_dialogs.append(dialog)
 
 	# Show dialog
@@ -260,8 +272,8 @@ func show_confirm(message: String, callback: Callable) -> void:
 	dialog.ok_button_text = "Yes"
 	dialog.cancel_button_text = "No"
 
-	# Add to scene tree
-	add_child(dialog)
+	# Add to UI Overlay Layer
+	ui_layer.add_child(dialog)
 	active_dialogs.append(dialog)
 
 	# Show dialog
@@ -300,8 +312,8 @@ func show_loading(message: String) -> void:
 	dialog.get_ok_button().visible = false  # Hide OK button for loading state
 	dialog.unresizable = true
 
-	# Add to scene tree
-	add_child(dialog)
+	# Add to UI Overlay Layer
+	ui_layer.add_child(dialog)
 	current_loading_dialog = dialog
 
 	# Show dialog
@@ -375,10 +387,10 @@ func show_tooltip(item_data: Dictionary, position: Vector2) -> void:
 
 	# Position tooltip
 	tooltip.position = position
-	tooltip.z_index = 1000  # Ensure tooltip is on top
+	# tooltip.z_index = 1000  # Not needed if in CanvasLayer
 
-	# Add to scene tree
-	add_child(tooltip)
+	# Add to UI Overlay Layer
+	ui_layer.add_child(tooltip)
 	current_tooltip = tooltip
 
 	# Adjust size to fit content
@@ -545,8 +557,8 @@ func show_context_menu(options: Array[String], entity: Node, screen_position: Ve
 	# Create context menu instance
 	var menu = context_menu_scene.instantiate()
 
-	# Add to UIManager (makes it a top-level UI element)
-	add_child(menu)
+	# Add to UI Overlay Layer (ensures screen-space rendering)
+	ui_layer.add_child(menu)
 	current_context_menu = menu
 
 	# Show menu with options

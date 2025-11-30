@@ -312,6 +312,60 @@ export function createZoneMatch(
 }
 
 /**
+ * Get or create match for zone streaming
+ * Task 2.3.1: Match initialization
+ *
+ * Attempts to find an existing Nakama match for a zone. If none exists, it creates one.
+ * Players join this match when entering the zone.
+ *
+ * @param nk - Nakama module API
+ * @param logger - Logger instance
+ * @param zoneId - Zone identifier
+ * @returns Match ID for zone
+ */
+export function getOrCreateZoneMatch(
+  nk: any,
+  logger: any,
+  zoneId: string
+): string | null {
+  try {
+    // First, try to find an existing match for this zone
+    // This ensures we broadcast to the same match players are connected to
+    const limit = 100;
+    const authoritative = true;
+    const label = '';
+    const minSize = 0;
+    const maxSize = 100;
+    const query = '';
+    
+    // List matches to find one with the correct zoneId in label
+    const matches = nk.matchList(limit, authoritative, label, minSize, maxSize, query);
+    
+    for (const match of matches) {
+      try {
+        const matchLabel = JSON.parse(match.label || '{}');
+        if (matchLabel.zoneId === zoneId) {
+          logger.debug('[Delta] Found existing match %s for zone %s', match.matchId, zoneId);
+          return match.matchId;
+        }
+      } catch (e) {
+        // Ignore matches with invalid labels
+        continue;
+      }
+    }
+
+    // If no match found, create a new one
+    // This should rarely happen if players are already in the zone
+    const matchId = createZoneMatch(nk, logger, zoneId, 'shard_01');
+    return matchId;
+
+  } catch (err: any) {
+    logger.error('[movement] Failed to get/create zone match: %s', err.message);
+    return null;
+  }
+}
+
+/**
  * Add player to zone match
  * Task 2.3.1: Player subscription
  *

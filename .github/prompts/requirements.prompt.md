@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: kiro
 ---
 
 ## **Requirements Generation Guide**

@@ -57,11 +57,53 @@ export function ensureZoneRunning(nk: any, logger: any, zoneId: string): string 
 
   logger.info('[ZoneManager] Starting zone %s', zoneId);
 
-  // Create a Nakama match for this zone (for delta streaming)
-  // Match module name must match a registered match handler (or use simple relayed match)
-  const matchId = nk.matchCreate('zone_match', { zoneId });
+  // First, check if a match already exists for this zone
+  // This handles server restarts or module reloads where activeZones map is empty
+  // but matches are still running in Nakama
+  let matchId: string | null = null;
+  
+  try {
+    // List all matches with the zone_match module
+    const limit = 100;
+    const authoritative = true;
+    const label = '';
+    const minSize = 0;
+    const maxSize = 100;
+    const query = '';
+    
+    const matches = nk.matchList(limit, authoritative, label, minSize, maxSize, query);
+    
+    // Find a match with matching zoneId in the label
+    for (const match of matches) {
+      try {
+        // Match label is set during creation with {zoneId: "zone_starter"}
+        const matchLabel = JSON.parse(match.label || '{}');
+        if (matchLabel.zoneId === zoneId) {
+          matchId = match.matchId;
+          logger.info('[ZoneManager] Found existing match %s for zone %s', matchId, zoneId);
+          break;
+        }
+      } catch (e) {
+        // Ignore matches with invalid labels
+        continue;
+      }
+    }
+  } catch (error) {
+    logger.warn('[ZoneManager] Failed to list matches: %s', error);
+  }
 
-  logger.info('[ZoneManager] Created match %s for zone %s', matchId, zoneId);
+  // If no existing match found, create a new one
+  if (!matchId) {
+    // Create a Nakama match for this zone (for delta streaming)
+    // Match module name must match a registered match handler (or use simple relayed match)
+    matchId = nk.matchCreate('zone_match', { zoneId });
+    logger.info('[ZoneManager] Created new match %s for zone %s', matchId, zoneId);
+  }
+
+  // Ensure matchId is not null at this point
+  if (!matchId) {
+    throw new Error(`Failed to create or find match for zone ${zoneId}`);
+  }
 
   // TODO: Create and start ZoneProcess instance
   // For now, we'll use a placeholder
@@ -69,7 +111,7 @@ export function ensureZoneRunning(nk: any, logger: any, zoneId: string): string 
 
   activeZone = {
     zoneId,
-    matchId,
+    matchId: matchId as string,
     playerCount: 0,
     process,
     startedAt: Date.now()
@@ -79,7 +121,7 @@ export function ensureZoneRunning(nk: any, logger: any, zoneId: string): string 
 
   logger.info('[ZoneManager] Zone %s started successfully (match %s)', zoneId, matchId);
 
-  return matchId;
+  return matchId as string;
 }
 
 /**

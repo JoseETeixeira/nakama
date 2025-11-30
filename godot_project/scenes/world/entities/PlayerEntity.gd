@@ -132,6 +132,7 @@ func handle_movement_input(delta: float) -> void:
 		# Send move_intent to server (throttled)
 		if move_intent_cooldown <= 0.0:
 			NakamaManager.move_intent(global_position, velocity)
+			NakamaManager.send_match_position(global_position)
 			move_intent_cooldown = MOVE_INTENT_INTERVAL
 	else:
 		# No input, stop moving
